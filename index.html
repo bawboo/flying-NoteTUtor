@@ -1,0 +1,1709 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>飛音帶你飛 - 阿卡練習器</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.8.3/build/opensheetmusicdisplay.min.js"></script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    /* Custom styles for OSMD container and cursor */
+    #score-container {
+      overflow: auto;
+      background-color: white;
+    }
+    /* Custom scrollbar for a better look in dark mode */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #2d3748;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #4a5568;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #718096;
+    }
+    @import url('https://rsms.me/inter/inter.css');
+    /* Toggle Switch CSS */
+    .toggle-checkbox:checked {
+        right: 0;
+        border-color: #3b82f6; /* sky-500 */
+    }
+    .toggle-checkbox:checked + .toggle-label {
+        background-color: #3b82f6; /* sky-500 */
+    }
+    /* Custom slider thumb styles */
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      background: #0ea5e9; /* sky-500 */
+      cursor: pointer;
+      border-radius: 50%;
+      border: 2px solid #f8fafc; /* gray-50 */
+      margin-top: -7px; /* Center thumb on track */
+    }
+    input[type=range]::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      background: #0ea5e9; /* sky-500 */
+      cursor: pointer;
+      border-radius: 50%;
+      border: 2px solid #f8fafc; /* gray-50 */
+    }
+    /* Styles for mobile auto-scaling */
+    #app-wrapper.mobile-scaled {
+        transform-origin: top left;
+        transform: scale(0.5);
+        width: 200vw;
+        height: 200vh;
+    }
+    /* Custom styles for enhanced mobile view */
+    #app-wrapper.mobile-scaled #file-upload-container {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+    #app-wrapper.mobile-scaled #file-upload-container > :not([hidden]) ~ :not([hidden]) {
+        margin-top: 0;
+    }
+    #app-wrapper.mobile-scaled #file-upload-container > div {
+        flex: 1;
+    }
+    #app-wrapper.mobile-scaled #file-upload-container label {
+        font-size: 1.5rem; /* Increased by 20% from 1.25rem */
+        line-height: 1.5;
+    }
+    #app-wrapper.mobile-scaled #file-upload-container button {
+        padding: 0.75rem 1rem;
+        font-size: 1.125rem; /* Larger font for button */
+    }
+    #app-wrapper.mobile-scaled #load-button {
+        padding-top: 1.25rem;
+        padding-bottom: 1.25rem;
+        font-size: 1.5rem; /* text-2xl, size unchanged as per request */
+    }
+    /* Styles for parameter inputs in mobile view (section below "Load Score") */
+    #app-wrapper.mobile-scaled div.pt-4 + .space-y-4 label {
+        font-size: 1.5rem; /* Increased by 20% from 1.25rem */
+        line-height: 1.5;
+    }
+    #app-wrapper.mobile-scaled div.pt-4 + .space-y-4 label[for="metronome-mode-toggle"] .text-xs {
+        font-size: 1.2rem; /* Increased by 20% from 1rem */
+    }
+    #app-wrapper.mobile-scaled div.pt-4 + .space-y-4 select,
+    #app-wrapper.mobile-scaled div.pt-4 + .space-y-4 input[type="number"] {
+        font-size: 1.5rem; /* Increased by 20% from 1.25rem */
+        padding: 0.75rem; /* Increase padding for easier tapping */
+    }
+    #app-wrapper.mobile-scaled input[type="range"] {
+        height: 0.75rem; /* thicker track */
+        padding: 0;
+    }
+    #app-wrapper.mobile-scaled input[type=range]::-webkit-slider-thumb {
+      width: 30px;
+      height: 30px;
+      margin-top: -9px; /* Center thumb on thicker track */
+    }
+    #app-wrapper.mobile-scaled input[type=range]::-moz-range-thumb {
+      width: 30px;
+      height: 30px;
+    }
+    
+    /* Further enhancements for mobile view based on feedback */
+    #app-wrapper.mobile-scaled header h1 {
+        font-size: 3.6rem; /* 20% larger than text-4xl */
+    }
+    #app-wrapper.mobile-scaled header p {
+        font-size: 1.2rem;
+    }
+    #app-wrapper.mobile-scaled h2 {
+        font-size: 1.8rem; /* 20% larger than text-2xl */
+    }
+    #app-wrapper.mobile-scaled .mode-button,
+    #app-wrapper.mobile-scaled #generate-button,
+    #app-wrapper.mobile-scaled #play-pause-button,
+    #app-wrapper.mobile-scaled #reset-button {
+        font-size: 1.2rem;
+    }
+    #app-wrapper.mobile-scaled #file-upload-container p.text-xs {
+        font-size: 0.9rem; /* 20% larger than 0.75rem */
+    }
+
+    /* Increase vertical size of specific action buttons for better tap targets */
+    #app-wrapper.mobile-scaled #generate-button,
+    #app-wrapper.mobile-scaled #play-pause-button,
+    #app-wrapper.mobile-scaled #reset-button {
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+    }
+    /* Visually hide an element but keep it accessible to screen readers */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border-width: 0;
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-200 antialiased">
+  <div id="loading-overlay" class="hidden fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center" aria-live="polite" aria-busy="true">
+    <div class="text-center text-white">
+      <svg class="animate-spin h-12 w-12 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+      <p id="loading-text" class="text-xl font-semibold" data-i18n-key="loading.processing">處理中...</p>
+    </div>
+  </div>
+
+  <div id="app-wrapper">
+    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+      <header class="text-center mb-8">
+        <h1 class="text-4xl md:text-5xl font-extrabold text-white tracking-tight">
+          飛音帶你飛 - <span class="text-sky-400">阿卡</span>練習器
+        </h1>
+        <p class="text-xl text-gray-300 tracking-wider mt-1">
+          Flying <span class="text-sky-400">N</span>ote<span class="text-sky-400">T</span><span class="text-sky-400">U</span>tor
+        </p>
+        <p class="text-gray-400 mt-4" data-i18n-key="subtitle">上傳 MusicXML樂譜檔 和音檔來播放指定小節和展示樂譜。 Produced by 竹筍 via Google AI Studio</p>
+      </header>
+
+      <div id="error-message" class="hidden bg-red-800 text-red-100 border-l-4 border-red-500 p-4 rounded-md mb-6" role="alert">
+        <p class="font-bold" data-i18n-key="error.title">錯誤</p>
+        <p id="error-text"></p>
+      </div>
+
+      <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Control Panel -->
+        <div class="lg:col-span-1 bg-gray-800 p-6 rounded-lg shadow-lg space-y-6 h-fit">
+          <!-- Mode Switcher -->
+          <div>
+            <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
+                <h2 class="text-2xl font-bold text-sky-300" data-i18n-key="modeSwitch">模式切換</h2>
+                <select id="language-switcher" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-sky-500 focus:border-sky-500 block p-1.5">
+                  <option value="zh-Hant" data-i18n-key="lang-zh-Hant">繁體中文</option>
+                  <option value="en" data-i18n-key="lang-en">English</option>
+                  <option value="ja" data-i18n-key="lang-ja">日本語</option>
+                </select>
+            </div>
+            <div class="grid grid-cols-3 gap-2">
+              <button id="mode-comprehensive" class="mode-button bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md transition-all" data-i18n-key="comprehensive">綜合</button>
+              <button id="mode-audio" class="mode-button bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-md transition-all" data-i18n-key="audioOnly">純音訊</button>
+              <button id="mode-score" class="mode-button bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-md transition-all" data-i18n-key="scoreOnly">純樂譜</button>
+            </div>
+          </div>
+
+          <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
+            <h2 class="text-2xl font-bold text-sky-300" data-i18n-key="controlPanel">控制面板</h2>
+            <a href="#" id="usage-help-link" class="text-sm text-sky-400 hover:text-sky-300 underline" data-i18n-key="usageHelpLink">建議使用方式</a>
+          </div>
+          
+          <!-- File Upload Section -->
+          <div id="file-upload-container" class="space-y-4">
+
+            <!-- ★ MSCZ Direct Import (requires server.py running) -->
+            <div id="mscz-upload-wrapper" class="pb-3 mb-1 border-b border-dashed border-purple-700">
+              <label class="block text-sm font-medium text-purple-300 mb-1">直接匯入 .mscz <span class="text-gray-500 font-normal">(需啟動 server.py)</span></label>
+              <div class="flex items-center space-x-2">
+                <button type="button" id="mscz-select-btn" class="px-4 py-2 bg-purple-700 hover:bg-purple-600 text-white text-sm font-semibold rounded-md transition-colors whitespace-nowrap">選擇 .mscz</button>
+                <span id="mscz-filename" class="text-sm text-gray-400 truncate">未選擇任何檔案</span>
+              </div>
+              <input type="file" id="mscz-input" accept=".mscz,.mscx" class="sr-only">
+              <div id="mscz-status" class="hidden text-xs mt-1"></div>
+              <p class="text-xs text-gray-500 mt-1">後端自動轉為 MusicXML 與音訊，填入下方欄位</p>
+            </div>
+
+            <div id="musicxml-upload-wrapper">
+              <label for="musicxml-select-btn" class="block text-sm font-medium text-gray-300 mb-1" data-i18n-key="scoreFile">樂譜檔案</label>
+              <div class="flex items-center space-x-2">
+                <button type="button" id="musicxml-select-btn" class="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white text-sm font-semibold rounded-md transition-colors whitespace-nowrap" data-i18n-key="selectFileBtn">選擇檔案</button>
+                <span id="musicxml-filename" class="text-sm text-gray-400 truncate" data-i18n-key="noFileSelected">未選擇任何檔案</span>
+              </div>
+              <input type="file" id="musicxml-input" accept=".xml,.musicxml,.mxl,application/vnd.recordare.musicxml+xml,text/xml" class="sr-only">
+              <p class="text-xs text-gray-500 mt-1" data-i18n-key="scoreFileDesc">請選擇一個 .musicxml 樂譜檔案 <a href="https://musescore.org/zh-hans/handbook/4/wenjiandaochu#%E5%AF%BC%E5%87%BA%E6%82%A8%E7%9A%84%E4%B9%90%E8%B0%B1" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:text-sky-300 underline" data-i18n-key="scoreFileDescLink">(可從 MuseScore 匯出)</a></p>
+            </div>
+            <div id="audio-upload-wrapper">
+              <label for="audio-select-btn" class="block text-sm font-medium text-gray-300 mb-1" data-i18n-key="audioFile">音訊檔案</label>
+              <div class="flex items-center space-x-2">
+                <button type="button" id="audio-select-btn" class="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white text-sm font-semibold rounded-md transition-colors whitespace-nowrap" data-i18n-key="selectFileBtn">選擇檔案</button>
+                <span id="audio-filename" class="text-sm text-gray-400 truncate" data-i18n-key="noFileSelected">未選擇任何檔案</span>
+              </div>
+              <input type="file" id="audio-input" accept=".mp3,.wav,.ogg,.m4a,.aac,.flac" class="sr-only">
+              <p class="text-xs text-gray-500 mt-1" data-i18n-key="audioFileDesc">請選擇一個音檔 <a href="https://musescore.org/zh-hans/handbook/4/wenjiandaochu#%E5%AF%BC%E5%87%BA%E6%82%A8%E7%9A%84%E4%B9%90%E8%B0%B1" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:text-sky-300 underline" data-i18n-key="audioFileDescLink">(可從 MuseScore 匯出)</a></p>
+            </div>
+             <!-- New Help Section -->
+            <div class="pt-2 text-sm">
+                <a href="#" id="musescore-help-link" class="text-sky-400 hover:text-sky-300 underline cursor-pointer" data-i18n-key="musescoreHelpLink">如何使用 MuseScore 取得這些檔案?</a>
+            </div>
+          </div>
+          
+          <div id="load-button-wrapper" class="pt-4 border-t border-gray-700">
+              <button id="load-button" class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-md transition-all" data-i18n-key="loadScoreInfoBtn">
+                  讀取樂譜資訊
+              </button>
+          </div>
+
+          <!-- Parameters Section -->
+          <div class="space-y-4 pt-4 border-t border-gray-700">
+            <div id="metronome-wrapper" class="flex items-center justify-between">
+              <label for="metronome-mode-toggle" class="flex flex-col cursor-pointer">
+                  <span class="text-sm font-medium text-gray-300" data-i18n-key="metronomeMode">節拍器模式</span>
+                  <span class="text-xs text-gray-500" data-i18n-key="metronomeModeDesc">僅播放目標BPM的節拍聲</span>
+              </label>
+              <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                  <input type="checkbox" name="metronome-mode-toggle" id="metronome-mode-toggle" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
+                  <label for="metronome-mode-toggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-600 cursor-pointer"></label>
+              </div>
+            </div>
+            <div id="part-select-wrapper">
+              <label for="part-select" class="block text-sm font-medium text-gray-300" data-i18n-key="partSelectLabel">聲部</label>
+              <select id="part-select" disabled class="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm disabled:opacity-50"></select>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div id="original-bpm-wrapper">
+                <label for="original-bpm-input" class="block text-sm font-medium text-gray-300" data-i18n-key="originalBPMLabel">樂譜BPM(原本拍速)</label>
+                <input type="number" id="original-bpm-input" value="120" class="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm disabled:opacity-50">
+              </div>
+              <div>
+                <label for="target-bpm-input" class="block text-sm font-medium text-gray-300"><span data-i18n-key="targetBPMLabel">目標BPM: </span><span id="target-bpm-display" class="font-bold text-sky-400">120</span></label>
+                <input type="number" id="target-bpm-input" value="120" min="20" max="300" class="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm">
+                <input type="range" id="target-bpm-slider" min="20" max="300" value="120" class="mt-2 w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-sky-500">
+              </div>
+              <div>
+                  <label for="start-measure-input" class="block text-sm font-medium text-gray-300" data-i18n-key="startMeasureLabel">起始小節</label>
+                  <div class="flex items-end gap-2">
+                      <input type="number" id="start-measure-input" value="1" min="1" class="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm">
+                      <div id="current-measure-display-start-wrapper" class="hidden text-center">
+                          <span class="text-xs text-gray-400" data-i18n-key="currentMeasureLabel">當前</span>
+                          <span id="current-measure-display-start" class="font-bold text-sky-400 text-lg leading-none">--</span>
+                      </div>
+                  </div>
+              </div>
+              <div>
+                  <label for="end-measure-input" class="block text-sm font-medium text-gray-300" data-i18n-key="endMeasureLabel">結束小節</label>
+                  <div class="flex items-end gap-2">
+                      <input type="number" id="end-measure-input" value="8" min="1" class="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm">
+                      <div id="current-measure-display-end-wrapper" class="hidden text-center">
+                          <span class="text-xs text-gray-400" data-i18n-key="currentMeasureLabel">當前</span>
+                          <span id="current-measure-display-end" class="font-bold text-sky-400 text-lg leading-none">--</span>
+                      </div>
+                  </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="space-y-4 pt-4 border-t border-gray-700">
+              <div id="generate-button-wrapper">
+                <button id="generate-button" class="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-md transition-all" data-i18n-key="generateScoreBtn">
+                    產生樂譜
+                </button>
+              </div>
+              <div class="flex gap-2">
+                  <button id="play-pause-button" class="w-1/2 bg-sky-500 hover:bg-sky-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-md transition-all flex items-center justify-center space-x-2">
+                      <svg id="play-icon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg>
+                      <svg id="pause-icon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 hidden" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h1a1 1 0 100-2H9V8a1 1 0 00-1-1zm4 0a1 1 0 00-1 1v4a1 1 0 001 1h1a1 1 0 100-2h-1V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+                      <span data-i18n-key="playBtn">播放</span>
+                  </button>
+                  <button id="reset-button" class="w-1/2 bg-gray-500 hover:bg-gray-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-md transition-all flex items-center justify-center space-x-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"> <path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201-4.46 5.5 5.5 0 011.026-1.584l.012-.015L8.53 4.14a.5.5 0 01-.707 0l-1.5-1.5a.5.5 0 010-.707l1.5-1.5a.5.5 0 11.707.707L7.03 2.121A6.5 6.5 0 0116 7.5a6.5 6.5 0 01-1.32 3.924l-.368.552zM4.688 8.576a5.5 5.5 0 019.201 4.46 5.5 5.5 0 01-1.026 1.584l-.012.015L11.47 15.86a.5.5 0 01.707 0l1.5 1.5a.5.5 0 010 .707l-1.5 1.5a.5.5 0 11-.707-.707l1.47-1.471A6.5 6.5 0 014 12.5a6.5 6.5 0 011.32-3.924l.368-.552z" clip-rule="evenodd" /> </svg>
+                      <span data-i18n-key="resetPlayBtn">重置播放</span>
+                  </button>
+              </div>
+               <div id="audio-player-wrapper">
+                <audio id="audio-player" class="w-full mt-4"></audio>
+               </div>
+          </div>
+        </div>
+
+        <!-- Score and Message Display -->
+        <div class="lg:col-span-2 relative flex flex-col">
+            <div id="current-measure-display-top-wrapper" class="absolute top-0 -left-14 text-center hidden">
+                <span class="text-xs text-gray-400" data-i18n-key="currentMeasureLabel">當前</span>
+                <span id="current-measure-display-top" class="text-2xl font-bold text-sky-400 leading-none">--</span>
+            </div>
+            <div id="score-container" class="w-full h-[80vh] bg-white rounded-t-lg shadow-lg p-2 border-4 border-gray-700 border-b-0">
+                <div class="flex items-center justify-center h-full text-gray-500">
+                    <p data-i18n-key="placeholder.upload">請上傳 MusicXML 檔案以在此顯示樂譜。</p>
+                </div>
+            </div>
+            <div id="resize-handle" class="w-full h-3 bg-gray-600 hover:bg-sky-500 cursor-ns-resize transition-colors rounded-b-lg"></div>
+             <div id="current-measure-display-bottom-wrapper" class="absolute bottom-0 -left-14 text-center hidden">
+                <span class="text-xs text-gray-400" data-i18n-key="currentMeasureLabel">當前</span>
+                <span id="current-measure-display-bottom" class="text-2xl font-bold text-sky-400 leading-none">--</span>
+            </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+<script type="module">
+  (function() {
+    // --- Mobile Viewport Adjustment ---
+    function adjustForMobile() {
+        const MOBILE_BREAKPOINT = 768; // Common breakpoint for phones
+        const wrapper = document.getElementById('app-wrapper');
+        if (window.innerWidth < MOBILE_BREAKPOINT) {
+            wrapper.classList.add('mobile-scaled');
+        } else {
+            wrapper.classList.remove('mobile-scaled');
+        }
+    }
+    // Run on initial load and on resize
+    adjustForMobile();
+    window.addEventListener('resize', adjustForMobile);
+
+    // DOM Elements
+    const musicXmlInput = document.getElementById('musicxml-input');
+    const audioInput = document.getElementById('audio-input');
+    const musicXmlSelectBtn = document.getElementById('musicxml-select-btn');
+    const musicXmlFilename = document.getElementById('musicxml-filename');
+    const audioSelectBtn = document.getElementById('audio-select-btn');
+    const audioFilename = document.getElementById('audio-filename');
+    const partSelect = document.getElementById('part-select');
+    const originalBpmInput = document.getElementById('original-bpm-input');
+    const targetBpmInput = document.getElementById('target-bpm-input');
+    const targetBpmSlider = document.getElementById('target-bpm-slider');
+    const targetBpmDisplay = document.getElementById('target-bpm-display');
+    const startMeasureInput = document.getElementById('start-measure-input');
+    const endMeasureInput = document.getElementById('end-measure-input');
+    const loadButton = document.getElementById('load-button');
+    const generateButton = document.getElementById('generate-button');
+    const playPauseButton = document.getElementById('play-pause-button');
+    const resetButton = document.getElementById('reset-button');
+    const playPauseText = playPauseButton.querySelector('span');
+    const playIcon = document.getElementById('play-icon');
+    const pauseIcon = document.getElementById('pause-icon');
+    const scoreContainer = document.getElementById('score-container');
+    const resizeHandle = document.getElementById('resize-handle');
+    const errorMessageDiv = document.getElementById('error-message');
+    const errorText = document.getElementById('error-text');
+    const audioPlayer = document.getElementById('audio-player');
+    const metronomeToggle = document.getElementById('metronome-mode-toggle');
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const loadingText = document.getElementById('loading-text');
+    const musescoreHelpLink = document.getElementById('musescore-help-link');
+    const usageHelpLink = document.getElementById('usage-help-link');
+    const languageSwitcher = document.getElementById('language-switcher');
+    const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+
+    // Mode Switcher Elements
+    const modeComprehensiveBtn = document.getElementById('mode-comprehensive');
+    const modeAudioBtn = document.getElementById('mode-audio');
+    const modeScoreBtn = document.getElementById('mode-score');
+    const modeButtons = [modeComprehensiveBtn, modeAudioBtn, modeScoreBtn];
+    const musicxmlUploadWrapper = document.getElementById('musicxml-upload-wrapper');
+    const audioUploadWrapper = document.getElementById('audio-upload-wrapper');
+    const loadButtonWrapper = document.getElementById('load-button-wrapper');
+    const metronomeWrapper = document.getElementById('metronome-wrapper');
+    const partSelectWrapper = document.getElementById('part-select-wrapper');
+    const originalBpmWrapper = document.getElementById('original-bpm-wrapper');
+    const generateButtonWrapper = document.getElementById('generate-button-wrapper');
+    const audioPlayerWrapper = document.getElementById('audio-player-wrapper');
+    const msczUploadWrapper = document.getElementById('mscz-upload-wrapper');
+    const allWrappers = [msczUploadWrapper, musicxmlUploadWrapper, audioUploadWrapper, loadButtonWrapper, metronomeWrapper, partSelectWrapper, originalBpmWrapper, generateButtonWrapper, audioPlayerWrapper];
+
+    // Current Measure Display Elements
+    const currentMeasureDisplayTopWrapper = document.getElementById('current-measure-display-top-wrapper');
+    const currentMeasureDisplayBottomWrapper = document.getElementById('current-measure-display-bottom-wrapper');
+    const currentMeasureDisplayStartWrapper = document.getElementById('current-measure-display-start-wrapper');
+    const currentMeasureDisplayEndWrapper = document.getElementById('current-measure-display-end-wrapper');
+    const currentMeasureDisplayTop = document.getElementById('current-measure-display-top');
+    const currentMeasureDisplayBottom = document.getElementById('current-measure-display-bottom');
+    const currentMeasureDisplayStart = document.getElementById('current-measure-display-start');
+    const currentMeasureDisplayEnd = document.getElementById('current-measure-display-end');
+    const currentMeasureDisplayWrappers = [currentMeasureDisplayTopWrapper, currentMeasureDisplayBottomWrapper, currentMeasureDisplayStartWrapper, currentMeasureDisplayEndWrapper];
+
+
+    // State
+    let currentMode = 'comprehensive';
+    let musicXmlFileContent = null;
+    let audioFileUrl = null;
+    let osmd = null;
+    let isPlaying = false; // For audio file
+    let timePerBeat = 0;
+    let playbackEndTime = 0;
+    let originalTimeSignature = null;
+    let isMetronomeMode = false;
+    let isMetronomePlaying = false;
+    let metronomeAudioContext = null;
+    let metronomeTimer = null;
+    let currentLang = 'zh-Hant';
+
+    // --- File Persistence ---
+    const DB_NAME = 'AcapellaTutorFileDB';
+    const STORE_NAME = 'fileHandles';
+    const MUSICXML_HANDLE_KEY = 'musicxmlHandle';
+    const AUDIO_HANDLE_KEY = 'audioHandle';
+    let dbPromise = null;
+    let musicXmlFileHandle = null;
+    let audioFileHandle = null;
+
+    // --- Internationalization (i18n) ---
+    const translations = {
+      'zh-Hant': {
+        'subtitle': '上傳 MusicXML樂譜檔 和音檔來播放指定小節和展示樂譜。 Produced by 竹筍 via Google AI Studio',
+        'modeSwitch': '模式切換', 'comprehensive': '綜合', 'audioOnly': '純音訊', 'scoreOnly': '純樂譜',
+        'controlPanel': '控制面板', 'scoreFile': '樂譜檔案', 'audioFile': '音訊檔案',
+        'scoreFileDesc': '請選擇一個 .musicxml 樂譜檔案 ', 'scoreFileDescLink': '(可從 MuseScore 匯出)',
+        'audioFileDesc': '請選擇一個音檔 ', 'audioFileDescLink': '(可從 MuseScore 匯出)',
+        'musescoreHelpLink': '如何使用 MuseScore 取得這些檔案?',
+        'musescoreHelpTitle': '如何使用 MuseScore',
+        'musescoreHelpText': '在 MuseScore 打開樂譜 &rarr; <b>文件</b> &rarr; <b>導出</b> &rarr; 格式: <br>樂譜檔案請選擇 <b>MusicXML (*.musicxml)</b><br>音訊檔案請選擇 <b>MP3</b> 或 <b>WAV</b><br>&rarr; 點擊 <b>導出</b>。<br><br>即可分別取得樂譜和音訊檔案。請把檔案放到您要使用此工具的裝置上，然後再分別上傳。',
+        'usageHelpLink': '建議使用方式',
+        'usageHelpTitle': '建議使用方式',
+        'usageHelpText': `
+            <p class="mb-4">建議用MuseScore軟體 中的 "混音器" 功能做出兩個音檔：</p>
+            <ul class="list-disc list-inside space-y-2 mb-4">
+                <li>一個是 <strong>你的聲部音量單獨放大的音檔</strong> - 用來一開始不熟悉的時候跟著自己聲部練習。</li>
+                <li>另一個是 <strong>你的聲部"靜音"的檔案</strong> - 用來在你熟悉之後在沒有輔助的情況下練習。</li>
+            </ul>
+            <p>另外，音檔用甚麼軟體合成都是ok的，只要是同一份mscz/midi/musicxml檔案合成出來的音檔都可以，或如果有辦法完全對拍的錄音檔也可，重點是要跟原本的樂譜設定的<strong>"速度完全一致"</strong>就沒問題了。(放沒對齊的音檔也會有聲音，但就失去這個工具使用的意義。)</p>`,
+        'loadScoreInfoBtn': '讀取樂譜資訊',
+        'metronomeMode': '節拍器模式', 'metronomeModeDesc': '僅播放目標BPM的節拍聲',
+        'partSelectLabel': '聲部', 'originalBPMLabel': '樂譜BPM(原本拍速)', 'targetBPMLabel': '目標BPM: ',
+        'startMeasureLabel': '起始小節', 'endMeasureLabel': '結束小節',
+        'generateScoreBtn': '產生樂譜', 'playBtn': '播放', 'pauseBtn': '暫停', 'metronomePlayBtn': '播放節拍器', 'resetPlayBtn': '重置播放',
+        'placeholder.upload': '請上傳 MusicXML 檔案以在此顯示樂譜。', 'placeholder.loaded': "樂譜讀取完成，請點擊 '產生樂譜' 來顯示。",
+        'placeholder.renderError': '樂譜渲染錯誤。', 'placeholder.loadError': '樂譜讀取失敗。',
+        'loading.processing': '處理中...', 'loading.loadingInfo': '讀取樂譜資訊中...', 'loading.generatingScore': '產生樂譜中...',
+        'error.title': '錯誤',
+        'error.musescoreFile': '偵測到 MuseScore 檔案。請先在 MuseScore 軟體中將其「匯出」為 MusicXML (.musicxml 或 .xml) 格式再上傳。',
+        'error.unsupportedAudio': '偵測到不支援的音訊檔案格式。請上傳常見的音訊檔案 (例如 .mp3, .wav, .m4a, .ogg)。',
+        'error.noMusicXML': '尚未選擇 MusicXML 檔案。', 'error.parseError': '解析 MusicXML 檔案失敗。請檢查檔案格式。 ',
+        'error.instrumentIndex': '提供了無效或超出範圍的樂器索引 ',
+        'error.scorePartId': "在索引 的 score-part 元素中找不到 'id' 屬性",
+        'error.partNodeFallback': '備用方案失敗：索引超出 <part> 元素範圍。',
+        'error.xmlCreateError': '建立新的 MusicXML 時發生解析器錯誤: ', 'error.xmlCreateErrorAllParts': '建立組合的 MusicXML 時發生解析器錯誤: ',
+        'error.noScoreLoaded': '請先讀取樂譜。', 'error.invalidStartMeasure': '起始小節無效。', 'error.invalidEndMeasure': '結束小節無效或小於起始小節。',
+        'error.renderError': '渲染樂譜時發生錯誤: ', 'error.noAudioFile': '尚未載入音訊檔案。',
+        'error.invalidBPM': 'BPM 值無效。必須為正數。', 'error.playFailed': '播放音訊失敗: ', 'error.noWebAudio': '此瀏覽器不支援 Web Audio API。',
+        'allParts': '所有聲部',
+        'currentMeasureLabel': '當前',
+        'selectFileBtn': '選擇檔案',
+        'noFileSelected': '未選擇任何檔案',
+      },
+      'en': {
+        'subtitle': 'Upload a MusicXML score and an audio file to play specific measures and display the sheet music. Produced by Bamboo via Google AI Studio',
+        'modeSwitch': 'Mode Switch', 'comprehensive': 'Comprehensive', 'audioOnly': 'Audio Only', 'scoreOnly': 'Score Only',
+        'controlPanel': 'Control Panel', 'scoreFile': 'Score File', 'audioFile': 'Audio File',
+        'scoreFileDesc': 'Select a .musicxml score file ', 'scoreFileDescLink': '(export from MuseScore)',
+        'audioFileDesc': 'Select an audio file ', 'audioFileDescLink': '(export from MuseScore)',
+        'musescoreHelpLink': 'How to get these files from MuseScore?',
+        'musescoreHelpTitle': 'How to use MuseScore',
+        'musescoreHelpText': "In MuseScore, open your score &rarr; <b>File</b> &rarr; <b>Export</b> &rarr; Format:<br>For the score file, choose <b>MusicXML (*.musicxml)</b><br>For the audio file, choose <b>MP3</b> or <b>WAV</b><br>&rarr; Click <b>Export</b>.<br><br>This will give you the score and audio files separately. Transfer them to the device you're using this tool on, and then upload them here.",
+        'usageHelpLink': 'Recommended Usage',
+        'usageHelpTitle': 'Recommended Usage',
+        'usageHelpText': `
+            <p class="mb-4">It is recommended to use the "Mixer" feature in MuseScore to create two audio files:</p>
+            <ul class="list-disc list-inside space-y-2 mb-4">
+                <li>One where <strong>your part's volume is increased</strong> - to practice along with your part when you are not yet familiar with it.</li>
+                <li>Another where <strong>your part is muted</strong> - to practice without assistance once you are familiar with it.</li>
+            </ul>
+            <p>Additionally, any software can be used to synthesize the audio, as long as it's generated from the same mscz/midi/musicxml file. A perfectly aligned recording would also work. The key is that it must be <strong>"perfectly consistent with the original score's tempo"</strong>. (Using a misaligned audio file will still produce sound, but it defeats the purpose of this tool.)</p>`,
+        'loadScoreInfoBtn': 'Load Score Info',
+        'metronomeMode': 'Metronome Mode', 'metronomeModeDesc': 'Plays only metronome clicks at target BPM',
+        'partSelectLabel': 'Part', 'originalBPMLabel': 'Original BPM', 'targetBPMLabel': 'Target BPM: ',
+        'startMeasureLabel': 'Start Measure', 'endMeasureLabel': 'End Measure',
+        'generateScoreBtn': 'Generate Score', 'playBtn': 'Play', 'pauseBtn': 'Pause', 'metronomePlayBtn': 'Play Metronome', 'resetPlayBtn': 'Reset Playback',
+        'placeholder.upload': 'Please upload a MusicXML file to display the score here.', 'placeholder.loaded': "Score loaded. Click 'Generate Score' to display.",
+        'placeholder.renderError': 'Error rendering score.', 'placeholder.loadError': 'Failed to load score.',
+        'loading.processing': 'Processing...', 'loading.loadingInfo': 'Loading score information...', 'loading.generatingScore': 'Generating score...',
+        'error.title': 'Error',
+        'error.musescoreFile': 'MuseScore file detected. Please "Export" it as MusicXML (.musicxml or .xml) from the MuseScore software before uploading.',
+        'error.unsupportedAudio': 'Unsupported audio file format detected. Please upload common audio files (e.g., .mp3, .wav, .m4a, .ogg).',
+        'error.noMusicXML': 'No MusicXML file selected.', 'error.parseError': 'Failed to parse MusicXML file. Please check the file format. ',
+        'error.instrumentIndex': 'Invalid or out-of-range instrument index provided ',
+        'error.scorePartId': "Could not find 'id' attribute in score-part element at index ",
+        'error.partNodeFallback': 'Fallback failed: index is out of bounds for <part> elements.',
+        'error.xmlCreateError': 'Parser error when creating new MusicXML: ', 'error.xmlCreateErrorAllParts': 'Parser error when creating combined MusicXML: ',
+        'error.noScoreLoaded': 'Please load a score first.', 'error.invalidStartMeasure': 'Invalid start measure.', 'error.invalidEndMeasure': 'End measure is invalid or less than start measure.',
+        'error.renderError': 'Error while rendering score: ', 'error.noAudioFile': 'No audio file loaded.',
+        'error.invalidBPM': 'Invalid BPM value. Must be a positive number.', 'error.playFailed': 'Failed to play audio: ', 'error.noWebAudio': 'Web Audio API is not supported in this browser.',
+        'allParts': 'All Parts',
+        'currentMeasureLabel': 'Current',
+        'selectFileBtn': 'Select File',
+        'noFileSelected': 'No file selected',
+      },
+      'ja': {
+        'subtitle': 'MusicXMLスコアと音声ファイルをアップロードして、特定の小節を再生し、楽譜を表示します。 Produced by Bamboo via Google AI Studio',
+        'modeSwitch': 'モード切替', 'comprehensive': '総合', 'audioOnly': '音声のみ', 'scoreOnly': '楽譜のみ',
+        'controlPanel': 'コントロールパネル', 'scoreFile': '楽譜ファイル', 'audioFile': '音声ファイル',
+        'scoreFileDesc': '.musicxml 楽譜ファイルを選択してください ', 'scoreFileDescLink': '（MuseScoreからエクスポート）',
+        'audioFileDesc': '音声ファイルを選択してください ', 'audioFileDescLink': '（MuseScoreからエクスポート）',
+        'musescoreHelpLink': 'MuseScoreからこれらのファイルを取得する方法は？',
+        'musescoreHelpTitle': 'MuseScoreの使い方',
+        'musescoreHelpText': 'MuseScoreで楽譜を開く &rarr; <b>ファイル</b> &rarr; <b>エクスポート</b> &rarr; 形式:<br>楽譜ファイルは<b>MusicXML (*.musicxml)</b>を選択<br>音声ファイルは<b>MP3</b>または<b>WAV</b>を選択<br>&rarr; <b>エクスポート</b>をクリック。<br><br>これで楽譜と音声ファイルが別々に取得できます。このツールを使用しているデバイスに転送し、アップロードしてください。',
+        'usageHelpLink': '推奨される使用法',
+        'usageHelpTitle': '推奨される使用法',
+        'usageHelpText': `
+            <p class="mb-4">MuseScoreの「ミキサー」機能を使用して、2つの音声ファイルを作成することをお勧めします：</p>
+            <ul class="list-disc list-inside space-y-2 mb-4">
+                <li>一つは、<strong>自分のパートの音量を上げたファイル</strong>です。まだ慣れていないときに、自分のパートと一緒に練習するために使用します。</li>
+                <li>もう一つは、<strong>自分のパートを「ミュート」したファイル</strong>です。慣れた後に、補助なしで練習するために使用します。</li>
+            </ul>
+            <p>また、音声の合成にはどのソフトウェアを使用しても構いませんが、同じmscz/midi/musicxmlファイルから生成されていることが条件です。完全にタイミングが合った録音でも機能します。重要なのは、元の楽譜で設定された<strong>「テンポと完全に一致」</strong>していることです。（タイミングがずれた音声ファイルを使用しても音は出ますが、このツールの意味が失われます。）</p>`,
+        'loadScoreInfoBtn': '楽譜情報を読み込む',
+        'metronomeMode': 'メトロノームモード', 'metronomeModeDesc': '目標BPMのクリック音のみ再生',
+        'partSelectLabel': 'パート', 'originalBPMLabel': '元のBPM', 'targetBPMLabel': '目標BPM: ',
+        'startMeasureLabel': '開始小節', 'endMeasureLabel': '終了小節',
+        'generateScoreBtn': '楽譜を生成', 'playBtn': '再生', 'pauseBtn': '一時停止', 'metronomePlayBtn': 'メトロノーム再生', 'resetPlayBtn': '再生をリセット',
+        'placeholder.upload': '楽譜を表示するにはMusicXMLファイルをアップロードしてください。', 'placeholder.loaded': '楽譜が読み込まれました。「楽譜を生成」をクリックして表示します。',
+        'placeholder.renderError': '楽譜のレンダリング中にエラーが発生しました。', 'placeholder.loadError': '楽譜の読み込みに失敗しました。',
+        'loading.processing': '処理中...', 'loading.loadingInfo': '楽譜情報を読み込み中...', 'loading.generatingScore': '楽譜を生成中...',
+        'error.title': 'エラー',
+        'error.musescoreFile': 'MuseScoreファイルが検出されました。アップロードする前に、MuseScoreソフトウェアからMusicXML（.musicxmlまたは.xml）として「エクスポート」してください。',
+        'error.unsupportedAudio': 'サポートされていない音声ファイル形式です。一般的な音声ファイル（例：.mp3、.wav、.m4a、.ogg）をアップロードしてください。',
+        'error.noMusicXML': 'MusicXMLファイルが選択されていません。', 'error.parseError': 'MusicXMLファイルの解析に失敗しました。ファイル形式を確認してください。 ',
+        'error.instrumentIndex': '無効または範囲外の楽器インデックスが提供されました ',
+        'error.scorePartId': 'インデックス のscore-part要素に「id」属性が見つかりませんでした',
+        'error.partNodeFallback': 'フォールバック失敗：インデックスが<part>要素の範囲外です。',
+        'error.xmlCreateError': '新しいMusicXMLの作成中にパーサーエラーが発生しました: ', 'error.xmlCreateErrorAllParts': '結合されたMusicXMLの作成中にパーサーエラーが発生しました: ',
+        'error.noScoreLoaded': '最初に楽譜を読み込んでください。', 'error.invalidStartMeasure': '開始小節が無効です。', 'error.invalidEndMeasure': '終了小節が無効か、開始小節より小さいです。',
+        'error.renderError': '楽譜のレンダリング中にエラーが発生しました: ', 'error.noAudioFile': '音声ファイルが読み込まれていません。',
+        'error.invalidBPM': 'BPM値が無効です。正の数でなければなりません。', 'error.playFailed': '音声の再生に失敗しました: ', 'error.noWebAudio': 'このブラウザはWeb Audio APIをサポートしていません。',
+        'allParts': '全てのパート',
+        'currentMeasureLabel': '現在',
+        'selectFileBtn': 'ファイルを選択',
+        'noFileSelected': 'ファイルが選択されていません',
+      }
+    };
+    
+    function t(key, lang = currentLang) {
+        const langBlock = translations[lang] || translations['zh-Hant']; // Default to Chinese
+        const fallbackBlock = translations['zh-Hant'];
+        return langBlock[key] || fallbackBlock[key] || key; // Fallback to Chinese, then key name
+    }
+    
+    function setLanguage(lang) {
+        currentLang = lang;
+        document.documentElement.lang = lang;
+        languageSwitcher.value = lang;
+        
+        document.querySelectorAll('[data-i18n-key]').forEach(el => {
+            const key = el.dataset.i18nKey;
+            let translation;
+
+            // Special case for MuseScore help text in Japanese
+            if (key === 'musescoreHelpText' && lang === 'ja') {
+                const enHelpText = t('musescoreHelpText', 'en'); // Use English version for Japanese
+                 translation = enHelpText.replace(/<b>File<\/b>/, '<b>ファイル</b>')
+                                  .replace(/<b>Export<\/b>/, '<b>エクスポート</b>')
+                                  .replace(/<b>MusicXML \(\*\.musicxml\)<\/b>/, '<b>MusicXML (*.musicxml)</b>')
+                                  .replace(/<b>MP3<\/b> or <b>WAV<\/b>/, '<b>MP3</b> または <b>WAV</b>');
+            } else {
+                translation = t(key);
+            }
+            
+            // Handle elements with children like the file descriptions
+            if (key === 'scoreFileDesc' || key === 'audioFileDesc') {
+                const linkKey = key + 'Link';
+                const linkTranslation = t(linkKey);
+                const linkElement = el.querySelector('a');
+                if (linkElement) {
+                    linkElement.innerHTML = linkTranslation;
+                }
+                el.childNodes[0].nodeValue = translation;
+            } else if (key === 'targetBPMLabel') {
+                 const parent = el.parentElement;
+                 if (parent && parent.childNodes.length > 0) {
+                    parent.childNodes[0].innerHTML = translation;
+                 }
+            } else if (key === 'playBtn') { 
+                // This key is on the span inside the button, so update it directly
+                // but this will be handled by the updatePlayButtonText call later.
+                el.innerHTML = translation;
+            }
+            else {
+                el.innerHTML = translation;
+            }
+        });
+        
+        // Update dynamic texts
+        updatePlayButtonText();
+        // re-render part select if it exists
+        if(partSelect.options.length > 1) {
+            const allPartsOption = partSelect.querySelector('option[value="-1"]');
+            if(allPartsOption) allPartsOption.textContent = t('allParts');
+        }
+    }
+
+    // Initialize OSMD
+    osmd = new opensheetmusicdisplay.OpenSheetMusicDisplay(scoreContainer, {
+        autoResize: true,
+        backend: "svg",
+        drawTitle: false,
+        drawCredits: false,
+        drawPartNames: true,
+        drawMeasureNumbers: true,
+        drawCursor: false
+    });
+
+
+    // --- IndexedDB Helpers for File Persistence ---
+    function getDB() {
+        if (!dbPromise) {
+            dbPromise = new Promise((resolve, reject) => {
+                if (!window.indexedDB) {
+                    console.warn('IndexedDB not supported, file persistence is disabled.');
+                    return reject('IndexedDB not supported');
+                }
+                const request = indexedDB.open(DB_NAME, 1);
+                request.onerror = () => reject("Error opening DB");
+                request.onsuccess = () => resolve(request.result);
+                request.onupgradeneeded = event => {
+                    const db = event.target.result;
+                    db.createObjectStore(STORE_NAME);
+                };
+            });
+        }
+        return dbPromise;
+    }
+
+    async function getFileHandle(key) {
+        const db = await getDB();
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(STORE_NAME, 'readonly');
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.get(key);
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject('Error getting handle');
+        });
+    }
+
+    async function setFileHandle(key, handle) {
+        const db = await getDB();
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(STORE_NAME, 'readwrite');
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.put(handle, key);
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject('Error setting handle');
+        });
+    }
+     async function verifyPermission(fileHandle) {
+        if (!fileHandle) return false;
+        if ((await fileHandle.queryPermission()) === 'granted') {
+            return true;
+        }
+        if ((await fileHandle.requestPermission()) === 'granted') {
+            return true;
+        }
+        return false;
+    }
+
+
+    // --- UI State Management ---
+    function showLoader(key) {
+      loadingText.textContent = t(key);
+      loadingOverlay.classList.remove('hidden');
+      loadingOverlay.setAttribute('aria-busy', 'true');
+    }
+
+    function hideLoader() {
+      loadingOverlay.classList.add('hidden');
+      loadingOverlay.setAttribute('aria-busy', 'false');
+    }
+    
+    function updatePlayButtonText() {
+        if (isPlaying || isMetronomePlaying) {
+            playPauseText.textContent = t('pauseBtn');
+        } else {
+            if (isMetronomeMode && currentMode !== 'score') {
+                playPauseText.textContent = t('metronomePlayBtn');
+            } else {
+                playPauseText.textContent = t('playBtn');
+            }
+        }
+    }
+
+    function setUIMode(newMode) {
+        currentMode = newMode;
+
+        modeButtons.forEach(btn => {
+            btn.classList.remove('bg-green-600', 'hover:bg-green-700', 'bg-gray-600', 'hover:bg-gray-700');
+            if (btn.id === `mode-${newMode}`) {
+                btn.classList.add('bg-green-600', 'hover:bg-green-700');
+            } else {
+                btn.classList.add('bg-gray-600', 'hover:bg-gray-700');
+            }
+        });
+
+        allWrappers.forEach(w => w.classList.remove('hidden'));
+        resetButton.classList.remove('hidden');
+        playPauseButton.classList.remove('w-full');
+        playPauseButton.classList.add('w-1/2');
+        scoreContainer.parentElement.classList.remove('hidden');
+
+        if (newMode === 'audio') {
+            msczUploadWrapper.classList.add('hidden');
+            musicxmlUploadWrapper.classList.add('hidden');
+            loadButtonWrapper.classList.add('hidden');
+            metronomeWrapper.classList.add('hidden');
+            partSelectWrapper.classList.add('hidden');
+            generateButtonWrapper.classList.add('hidden');
+            scoreContainer.parentElement.classList.add('hidden');
+        } else if (newMode === 'score') {
+            audioUploadWrapper.classList.add('hidden');
+            originalBpmWrapper.classList.add('hidden');
+            audioPlayerWrapper.classList.add('hidden');
+            resetButton.classList.add('hidden');
+            playPauseButton.classList.remove('w-1/2');
+            playPauseButton.classList.add('w-full');
+        }
+
+        const showMeasureDisplay = newMode === 'comprehensive' || newMode === 'audio';
+        currentMeasureDisplayWrappers.forEach(el => {
+            if (showMeasureDisplay) {
+                el.classList.remove('hidden');
+            } else {
+                el.classList.add('hidden');
+            }
+        });
+        
+        updateUiState();
+        updatePlayButtonText();
+    }
+
+    function updateUiState() {
+        const audioFileLoaded = !!audioFileUrl;
+        const scoreFileSelected = !!musicXmlFileContent || !!musicXmlFileHandle;
+        const isScoreInfoLoaded = partSelect.options.length > 0;
+        
+        loadButton.disabled = !scoreFileSelected;
+        partSelect.disabled = !isScoreInfoLoaded;
+        generateButton.disabled = !isScoreInfoLoaded;
+        originalBpmInput.disabled = false;
+        
+        // Show audio player only if a file is loaded and in a relevant mode
+        if ((currentMode === 'comprehensive' || currentMode === 'audio') && audioFileLoaded) {
+            audioPlayerWrapper.classList.remove('hidden');
+        } else {
+            audioPlayerWrapper.classList.add('hidden');
+        }
+        
+        let playDisabled = true;
+        switch (currentMode) {
+            case 'comprehensive':
+                // Can play metronome anytime. Can play audio if loaded and not in metronome mode.
+                playDisabled = isMetronomeMode ? false : !audioFileLoaded;
+                break;
+            case 'audio':
+                playDisabled = !audioFileLoaded;
+                break;
+            case 'score':
+                // Can only play metronome
+                playDisabled = !isMetronomeMode;
+                break;
+        }
+        playPauseButton.disabled = playDisabled;
+
+        const isResetEnabled = audioFileLoaded && !isMetronomeMode && currentMode !== 'score';
+        resetButton.disabled = !isResetEnabled;
+    }
+
+
+    function showScorePlaceholder(key) {
+        scoreContainer.innerHTML = `<div class="flex items-center justify-center h-full text-gray-500"><p>${t(key)}</p></div>`;
+    }
+
+    function showError(key, extraMessage = '') {
+      errorText.textContent = t(key) + extraMessage;
+      errorMessageDiv.classList.remove('hidden');
+    }
+
+    function hideError() {
+      errorMessageDiv.classList.add('hidden');
+    }
+
+    // --- Modal Logic ---
+    let activeModal = null;
+
+    function showModal(title, content) {
+        if (activeModal) {
+            closeModal();
+        }
+
+        const modalOverlay = document.createElement('div');
+        modalOverlay.id = 'modal-overlay';
+        modalOverlay.className = 'fixed inset-0 bg-black bg-opacity-70 z-40';
+        
+        const modalContainer = document.createElement('div');
+        modalContainer.id = 'modal-container';
+        modalContainer.className = 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-800 text-gray-200 p-6 rounded-lg shadow-xl z-50 max-w-lg w-[90%]';
+        modalContainer.setAttribute('role', 'dialog');
+        modalContainer.setAttribute('aria-modal', 'true');
+        
+        const modalHeader = document.createElement('div');
+        modalHeader.className = 'flex justify-between items-center border-b border-gray-600 pb-3 mb-4';
+
+        const modalTitle = document.createElement('h3');
+        modalTitle.className = 'text-xl font-bold text-sky-300';
+        modalTitle.textContent = title;
+
+        const closeButton = document.createElement('button');
+        closeButton.innerHTML = '&times;';
+        closeButton.className = 'text-3xl leading-none text-gray-400 hover:text-white focus:outline-none';
+        closeButton.setAttribute('aria-label', 'Close modal');
+
+        const modalBody = document.createElement('div');
+        modalBody.className = 'text-sm leading-relaxed';
+        modalBody.innerHTML = content;
+
+        modalHeader.appendChild(modalTitle);
+        modalHeader.appendChild(closeButton);
+        modalContainer.appendChild(modalHeader);
+        modalContainer.appendChild(modalBody);
+        
+        document.body.appendChild(modalOverlay);
+        document.body.appendChild(modalContainer);
+
+        activeModal = { overlay: modalOverlay, container: modalContainer };
+
+        const closeModalFunc = () => closeModal();
+        modalOverlay.addEventListener('click', closeModalFunc);
+        closeButton.addEventListener('click', closeModalFunc);
+        closeButton.focus();
+    }
+    
+    function closeModal() {
+        if (activeModal) {
+            activeModal.overlay.remove();
+            activeModal.container.remove();
+            activeModal = null;
+        }
+    }
+
+    // --- Event Listeners ---
+    musicXmlSelectBtn.addEventListener('click', selectMusicXmlFile);
+    audioSelectBtn.addEventListener('click', selectAudioFile);
+    musicXmlInput.addEventListener('change', (e) => handleFileInput(e, processMusicXmlFile));
+    audioInput.addEventListener('change', (e) => handleFileInput(e, processAudioFile));
+    loadButton.addEventListener('click', loadScoreInfo);
+    generateButton.addEventListener('click', renderScoreSelection);
+    playPauseButton.addEventListener('click', togglePlayback);
+    resetButton.addEventListener('click', handleReset);
+    metronomeToggle.addEventListener('change', handleMetronomeToggle);
+    languageSwitcher.addEventListener('change', (e) => setLanguage(e.target.value));
+    
+    musescoreHelpLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        showModal(t('musescoreHelpTitle'), t('musescoreHelpText'));
+    });
+
+    usageHelpLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        showModal(t('usageHelpTitle'), t('usageHelpText'));
+    });
+
+    // --- BPM Input Logic ---
+    function updateBpmDisplayFromInput() {
+        const rawValue = targetBpmInput.value;
+        targetBpmDisplay.textContent = rawValue === '' ? '--' : rawValue;
+    }
+
+    function syncBpmFromSlider() {
+        const value = targetBpmSlider.value;
+        targetBpmInput.value = value;
+        targetBpmDisplay.textContent = value;
+    }
+
+    function finalizeAndSyncBpm() {
+        const rawValue = parseInt(targetBpmInput.value, 10);
+        const originalBpm = parseInt(originalBpmInput.value, 10);
+        const fallbackBpm = !isNaN(originalBpm) && originalBpm > 0 ? originalBpm : 120;
+        const value = Math.max(20, Math.min(300, isNaN(rawValue) ? fallbackBpm : rawValue));
+
+        targetBpmInput.value = value;
+        targetBpmSlider.value = value;
+        targetBpmDisplay.textContent = value;
+    }
+
+    targetBpmSlider.addEventListener('input', syncBpmFromSlider);
+    targetBpmInput.addEventListener('input', updateBpmDisplayFromInput);
+    targetBpmInput.addEventListener('blur', finalizeAndSyncBpm);
+
+    originalBpmInput.addEventListener('input', () => {
+        if (!isMetronomeMode) {
+            const rawValue = parseInt(originalBpmInput.value, 10);
+            if (!isNaN(rawValue) && rawValue > 0) {
+                const value = Math.max(20, Math.min(300, rawValue));
+                targetBpmInput.value = value;
+                targetBpmSlider.value = value;
+                targetBpmDisplay.textContent = value;
+            }
+        }
+    });
+
+
+    modeComprehensiveBtn.addEventListener('click', () => setUIMode('comprehensive'));
+    modeAudioBtn.addEventListener('click', () => setUIMode('audio'));
+    modeScoreBtn.addEventListener('click', () => setUIMode('score'));
+    resizeHandle.addEventListener('mousedown', initResize);
+
+
+    // --- File Handling ---
+    async function selectMusicXmlFile() {
+        if ('showOpenFilePicker' in window && !isMobile) {
+            try {
+                const [handle] = await window.showOpenFilePicker({
+                    types: [{
+                        description: 'MusicXML Files',
+                        accept: { 'application/vnd.recordare.musicxml+xml': ['.musicxml', '.xml', '.mxl'] }
+                    }],
+                });
+                musicXmlFileHandle = handle;
+                await setFileHandle(MUSICXML_HANDLE_KEY, handle);
+                const file = await handle.getFile();
+                await processMusicXmlFile(file);
+            } catch (err) {
+                console.log('User cancelled file picker or an error occurred.', err);
+            }
+        } else {
+            musicXmlInput.click();
+        }
+    }
+    
+    async function selectAudioFile() {
+        if ('showOpenFilePicker' in window && !isMobile) {
+            try {
+                const [handle] = await window.showOpenFilePicker({
+                    types: [{
+                        description: 'Audio Files',
+                        accept: { 'audio/*': ['.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac'] }
+                    }],
+                });
+                audioFileHandle = handle;
+                await setFileHandle(AUDIO_HANDLE_KEY, handle);
+                const file = await handle.getFile();
+                await processAudioFile(file);
+            } catch (err) {
+                console.log('User cancelled file picker or an error occurred.', err);
+            }
+        } else {
+            audioInput.click();
+        }
+    }
+
+    function handleFileInput(event, processFunction) {
+        const file = event.target.files[0];
+        if (file) {
+            processFunction(file);
+        }
+    }
+
+    async function processMusicXmlFile(file) {
+        hideError();
+        if (!file) return;
+
+        const fileName = file.name.toLowerCase();
+        if (fileName.endsWith('.mscz') || fileName.endsWith('.mscx')) {
+            // Route through the backend converter instead of rejecting
+            musicXmlInput.value = '';
+            await processMsczFile(file);
+            return;
+        }
+
+        musicXmlFilename.textContent = file.name;
+        musicXmlFilename.removeAttribute('data-i18n-key');
+        
+        try {
+            musicXmlFileContent = await file.text();
+            updateUiState();
+        } catch (e) {
+            showError("error.parseError", e.message);
+        }
+    }
+    
+    function processAudioFile(file) {
+        hideError();
+        if (!file) return;
+        
+        const fileName = file.name.toLowerCase();
+        const supportedAudioFormats = ['.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac'];
+        const isSupported = supportedAudioFormats.some(ext => fileName.endsWith(ext));
+
+        if (!isSupported) {
+            showError("error.unsupportedAudio");
+            audioInput.value = '';
+            return;
+        }
+
+        audioFilename.textContent = file.name;
+        audioFilename.removeAttribute('data-i18n-key');
+
+        if (audioFileUrl) URL.revokeObjectURL(audioFileUrl);
+        audioFileUrl = URL.createObjectURL(file);
+        audioPlayer.src = audioFileUrl;
+        audioPlayer.controls = true;
+        updateUiState();
+    }
+    
+    // --- Score Container Resizing ---
+    function initResize(e) {
+        e.preventDefault();
+        
+        document.body.style.cursor = 'ns-resize';
+        document.body.style.userSelect = 'none';
+
+        const startY = e.clientY;
+        const startHeight = scoreContainer.offsetHeight;
+        const scoreContainerTop = scoreContainer.getBoundingClientRect().top;
+
+        function doResize(e) {
+            const newHeight = startHeight + e.clientY - startY;
+            const minHeight = 200; // pixels
+            const maxHeight = window.innerHeight - scoreContainerTop - resizeHandle.offsetHeight;
+            
+            scoreContainer.style.height = `${Math.max(minHeight, Math.min(maxHeight, newHeight))}px`;
+            // No need to call osmd.render() because of autoResize: true in constructor
+        }
+
+        function stopResize() {
+            window.removeEventListener('mousemove', doResize, false);
+            window.removeEventListener('mouseup', stopResize, false);
+            
+            document.body.style.cursor = 'default';
+            document.body.style.userSelect = 'auto';
+        }
+
+        window.addEventListener('mousemove', doResize, false);
+        window.addEventListener('mouseup', stopResize, false);
+    }
+
+    // --- Core Logic ---
+    async function loadScoreInfo() {
+        hideError();
+        showLoader('loading.loadingInfo');
+        updateCurrentMeasureDisplay(null);
+
+        if (!musicXmlFileContent && musicXmlFileHandle) {
+            try {
+                if (await verifyPermission(musicXmlFileHandle)) {
+                    const file = await musicXmlFileHandle.getFile();
+                    musicXmlFileContent = await file.text();
+                } else {
+                    hideLoader();
+                    return; // User denied permission
+                }
+            } catch (e) {
+                showError("error.parseError", e.message);
+                hideLoader();
+                return;
+            }
+        }
+
+        if (!musicXmlFileContent) {
+            showError("error.noMusicXML");
+            hideLoader();
+            return;
+        }
+
+        try {
+            await osmd.load(musicXmlFileContent);
+            
+            partSelect.innerHTML = '';
+            const allPartsOption = document.createElement('option');
+            allPartsOption.value = -1;
+            allPartsOption.textContent = t('allParts');
+            partSelect.appendChild(allPartsOption);
+
+            osmd.sheet.Instruments.forEach((instrument, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = instrument.Name;
+                partSelect.appendChild(option);
+            });
+            
+            originalTimeSignature = osmd.sheet.SourceMeasures[0]?.ActiveTimeSignature;
+
+            const firstMeasure = osmd.sheet.SourceMeasures[0];
+            if(firstMeasure && firstMeasure.TempoInBPM) {
+              const bpm = Math.round(firstMeasure.TempoInBPM);
+              originalBpmInput.value = bpm;
+              if (!isMetronomeMode) {
+                  const value = Math.max(20, Math.min(300, bpm || 120));
+                  targetBpmInput.value = value;
+                  targetBpmSlider.value = value;
+                  targetBpmDisplay.textContent = value;
+              }
+            }
+            
+            startMeasureInput.value = 1;
+            endMeasureInput.value = osmd.sheet.SourceMeasures.length;
+            startMeasureInput.max = osmd.sheet.SourceMeasures.length;
+            endMeasureInput.max = osmd.sheet.SourceMeasures.length;
+            
+            showScorePlaceholder("placeholder.loaded");
+
+        } catch (e) {
+            showError("error.parseError", e.message);
+            musicXmlFileContent = null;
+            showScorePlaceholder("placeholder.loadError");
+        } finally {
+            hideLoader();
+            updateUiState();
+        }
+    }
+    
+    function filterMusicXML(xmlString, partIndex, startMeasure, endMeasure) {
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xmlString, "text/xml");
+        
+        if (partIndex === -1) {
+            const newXmlDoc = parser.parseFromString('<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd"><score-partwise version="4.0"></score-partwise>', 'application/xml');
+            const newScoreNode = newXmlDoc.querySelector('score-partwise');
+
+            const partList = xmlDoc.querySelector('part-list');
+            if(partList) {
+                newScoreNode.appendChild(partList.cloneNode(true));
+            }
+
+            const allOriginalPartNodes = Array.from(xmlDoc.querySelectorAll('score-partwise > part'));
+
+            for (const originalPartNode of allOriginalPartNodes) {
+                const partId = originalPartNode.getAttribute('id');
+                let lastAttributes = null;
+                let lastTempoDirection = null;
+
+                for (let i = 1; i < startMeasure; i++) {
+                    const measureNode = originalPartNode.querySelector(`measure[number="${i}"]`);
+                    if (measureNode) {
+                        const currentAttributes = measureNode.querySelector('attributes');
+                        if (currentAttributes) {
+                            if (!lastAttributes) {
+                                lastAttributes = currentAttributes.cloneNode(true);
+                            } else {
+                                for (const child of Array.from(currentAttributes.children)) {
+                                    const existingChild = lastAttributes.querySelector(child.tagName);
+                                    if (existingChild) existingChild.remove();
+                                    lastAttributes.appendChild(child.cloneNode(true));
+                                }
+                            }
+                        }
+                        const directionNode = measureNode.querySelector('direction sound[tempo]');
+                        if (directionNode) {
+                            lastTempoDirection = directionNode.closest('direction').cloneNode(true);
+                        }
+                    }
+                }
+                const newPartNode = newXmlDoc.createElement('part');
+                if (partId) newPartNode.setAttribute('id', partId);
+                
+                for (let i = startMeasure; i <= endMeasure; i++) {
+                    const measureNode = originalPartNode.querySelector(`measure[number="${i}"]`);
+                    if (measureNode) {
+                        const newMeasure = measureNode.cloneNode(true);
+                        if (i === startMeasure && startMeasure > 1) {
+                            if (lastAttributes) {
+                                const existingAttributes = newMeasure.querySelector('attributes');
+                                if (existingAttributes) {
+                                    for (const contextChild of Array.from(lastAttributes.children)) {
+                                        if (!existingAttributes.querySelector(contextChild.tagName)) {
+                                            existingAttributes.insertBefore(contextChild.cloneNode(true), existingAttributes.firstChild);
+                                        }
+                                    }
+                                } else {
+                                    newMeasure.insertBefore(lastAttributes.cloneNode(true), newMeasure.firstChild);
+                                }
+                            }
+                            if (lastTempoDirection && !newMeasure.querySelector('direction sound[tempo]')) {
+                                 const referenceNode = newMeasure.querySelector('attributes')?.nextSibling || newMeasure.firstChild;
+                                 newMeasure.insertBefore(lastTempoDirection.cloneNode(true), referenceNode);
+                            }
+                        }
+                        newPartNode.appendChild(newMeasure);
+                    }
+                }
+                newScoreNode.appendChild(newPartNode);
+            }
+
+            const errorNode = newXmlDoc.querySelector('parsererror');
+            if (errorNode) {
+                throw new Error(t('error.xmlCreateErrorAllParts') + errorNode.textContent);
+            }
+            return new XMLSerializer().serializeToString(newXmlDoc);
+        }
+
+        const partListScoreParts = Array.from(xmlDoc.querySelectorAll('part-list > score-part'));
+        if (partIndex < 0 || partIndex >= partListScoreParts.length) {
+            throw new Error(t('error.instrumentIndex') + `(${partIndex})`);
+        }
+
+        const scorePartNode = partListScoreParts[partIndex];
+        const partId = scorePartNode.getAttribute('id');
+        if (!partId) {
+             throw new Error(t('error.scorePartId') + partIndex);
+        }
+        
+        let originalPartNode = xmlDoc.querySelector(`part[id="${partId}"]`);
+        if (!originalPartNode) {
+            const allPartNodes = Array.from(xmlDoc.querySelectorAll('score-partwise > part'));
+            if (partIndex >= allPartNodes.length) {
+                throw new Error(t('error.partNodeFallback'));
+            }
+            originalPartNode = allPartNodes[partIndex];
+        }
+
+        let lastAttributes = null;
+        let lastTempoDirection = null;
+
+        for (let i = 1; i < startMeasure; i++) {
+            const measureNode = originalPartNode.querySelector(`measure[number="${i}"]`);
+            if (measureNode) {
+                const currentAttributes = measureNode.querySelector('attributes');
+                if (currentAttributes) {
+                    if (!lastAttributes) {
+                        lastAttributes = currentAttributes.cloneNode(true);
+                    } else {
+                        for (const child of Array.from(currentAttributes.children)) {
+                            const existingChild = lastAttributes.querySelector(child.tagName);
+                            if (existingChild) {
+                                existingChild.remove();
+                            }
+                            lastAttributes.appendChild(child.cloneNode(true));
+                        }
+                    }
+                }
+                
+                const directionNode = measureNode.querySelector('direction sound[tempo]');
+                if (directionNode) {
+                    lastTempoDirection = directionNode.closest('direction').cloneNode(true);
+                }
+            }
+        }
+        
+        const newXmlDoc = parser.parseFromString('<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd"><score-partwise version="4.0"></score-partwise>', 'application/xml');
+        const newScoreNode = newXmlDoc.querySelector('score-partwise');
+
+        const partList = xmlDoc.querySelector('part-list');
+        if(partList) {
+            const newPartList = newXmlDoc.createElement('part-list');
+            newPartList.appendChild(scorePartNode.cloneNode(true));
+            newScoreNode.appendChild(newPartList);
+        }
+
+        const newPartNode = newXmlDoc.createElement('part');
+        newPartNode.setAttribute('id', partId);
+        
+        for (let i = startMeasure; i <= endMeasure; i++) {
+            const measureNode = originalPartNode.querySelector(`measure[number="${i}"]`);
+            if (measureNode) {
+                const newMeasure = measureNode.cloneNode(true);
+
+                if (i === startMeasure && startMeasure > 1) {
+                    if (lastAttributes) {
+                        const existingAttributes = newMeasure.querySelector('attributes');
+                        if (existingAttributes) {
+                            for (const contextChild of Array.from(lastAttributes.children)) {
+                                if (!existingAttributes.querySelector(contextChild.tagName)) {
+                                    existingAttributes.insertBefore(contextChild.cloneNode(true), existingAttributes.firstChild);
+                                }
+                            }
+                        } else {
+                            newMeasure.insertBefore(lastAttributes.cloneNode(true), newMeasure.firstChild);
+                        }
+                    }
+                    if (lastTempoDirection && !newMeasure.querySelector('direction sound[tempo]')) {
+                         const referenceNode = newMeasure.querySelector('attributes')?.nextSibling || newMeasure.firstChild;
+                         newMeasure.insertBefore(lastTempoDirection.cloneNode(true), referenceNode);
+                    }
+                }
+                newPartNode.appendChild(newMeasure);
+            }
+        }
+        newScoreNode.appendChild(newPartNode);
+        
+        const errorNode = newXmlDoc.querySelector('parsererror');
+        if (errorNode) {
+            throw new Error(t('error.xmlCreateError') + errorNode.textContent);
+        }
+        
+        return new XMLSerializer().serializeToString(newXmlDoc);
+    }
+    
+    async function renderScoreSelection() {
+        hideError();
+        updateCurrentMeasureDisplay(null);
+        if (!musicXmlFileContent) {
+            showError("error.noScoreLoaded");
+            return;
+        }
+        
+        const selectedPartIndex = parseInt(partSelect.value, 10);
+        const startMeasure = parseInt(startMeasureInput.value, 10);
+        const endMeasure = parseInt(endMeasureInput.value, 10);
+
+        if (isNaN(startMeasure) || startMeasure < 1) {
+            showError("error.invalidStartMeasure");
+            return;
+        }
+        if (isNaN(endMeasure) || endMeasure < startMeasure) {
+            showError("error.invalidEndMeasure");
+            return;
+        }
+
+        showLoader('loading.generatingScore');
+
+        try {
+            const filteredXml = filterMusicXML(musicXmlFileContent, selectedPartIndex, startMeasure, endMeasure);
+            await osmd.load(filteredXml);
+            scoreContainer.innerHTML = '';
+            osmd.render();
+            if (audioFileUrl) {
+                handleReset(); 
+            }
+        } catch (e) {
+            showError("error.renderError", e.message);
+            showScorePlaceholder("placeholder.renderError");
+        } finally {
+            hideLoader();
+        }
+    }
+    
+    // --- Playback Logic ---
+    function updateCurrentMeasureDisplay(measure) {
+        const displayValue = (measure && measure > 0) ? String(Math.floor(measure)) : '--';
+        currentMeasureDisplayTop.textContent = displayValue;
+        currentMeasureDisplayBottom.textContent = displayValue;
+        currentMeasureDisplayStart.textContent = displayValue;
+        currentMeasureDisplayEnd.textContent = displayValue;
+    }
+
+    async function togglePlayback() {
+        if (isMetronomeMode) {
+            toggleMetronome();
+        } else {
+            isPlaying ? pause() : await play();
+        }
+    }
+    
+    function handleReset() {
+        if (isMetronomeMode) {
+            if (isMetronomePlaying) {
+                stopMetronome();
+            }
+            return;
+        }
+
+        if (!audioFileUrl) return;
+        if (isPlaying) pause();
+
+        const originalBpm = parseFloat(originalBpmInput.value);
+        const startMeasure = parseInt(startMeasureInput.value, 10);
+
+        if (!originalBpm || originalBpm <= 0 || isNaN(startMeasure) || startMeasure < 1) {
+            audioPlayer.currentTime = 0;
+            updateCurrentMeasureDisplay(null);
+            return;
+        }
+        
+        let beatsPerMeasure = originalTimeSignature ? originalTimeSignature.numerator : 4;
+        const startTime = (startMeasure - 1) * beatsPerMeasure * (60 / originalBpm);
+        audioPlayer.currentTime = startTime;
+        updateCurrentMeasureDisplay(startMeasure);
+    }
+
+    function handleAudioTimeUpdate() {
+        if (playbackEndTime > 0 && audioPlayer.currentTime >= playbackEndTime) {
+            pause();
+            handleReset();
+        }
+
+        const originalBpm = parseFloat(originalBpmInput.value);
+        if (originalBpm > 0 && originalTimeSignature) {
+            const beatsPerMeasure = originalTimeSignature.numerator;
+            const secondsPerBeat = 60 / originalBpm;
+            const secondsPerMeasure = beatsPerMeasure * secondsPerBeat;
+            if (secondsPerMeasure > 0) {
+                const currentMeasure = Math.floor(audioPlayer.currentTime / secondsPerMeasure) + 1;
+                updateCurrentMeasureDisplay(currentMeasure);
+            }
+        }
+    }
+
+    async function play() {
+        if (!audioFileUrl && audioFileHandle) {
+             if (await verifyPermission(audioFileHandle)) {
+                const file = await audioFileHandle.getFile();
+                processAudioFile(file);
+             } else {
+                return; // User denied permission
+             }
+        }
+        
+        if (!audioFileUrl) {
+            showError("error.noAudioFile");
+            return;
+        }
+
+        const originalBpm = parseFloat(originalBpmInput.value);
+        const targetBpm = parseFloat(targetBpmInput.value);
+
+        if (!originalBpm || originalBpm <= 0 || !targetBpm || targetBpm <= 0) {
+            showError("error.invalidBPM");
+            return;
+        }
+        
+        const startMeasure = parseInt(startMeasureInput.value, 10);
+        const endMeasure = parseInt(endMeasureInput.value, 10);
+        let beatsPerMeasure = originalTimeSignature ? originalTimeSignature.numerator : 4;
+        
+        audioPlayer.playbackRate = targetBpm / originalBpm;
+        timePerBeat = 60 / originalBpm;
+        const startTime = (startMeasure - 1) * beatsPerMeasure * timePerBeat;
+        playbackEndTime = endMeasure * beatsPerMeasure * timePerBeat;
+        
+        if (audioPlayer.currentTime < startTime || audioPlayer.currentTime >= playbackEndTime) {
+            audioPlayer.currentTime = startTime;
+        }
+        
+        audioPlayer.ontimeupdate = handleAudioTimeUpdate;
+        
+        try {
+            await audioPlayer.play();
+            isPlaying = true;
+            playIcon.classList.add('hidden');
+            pauseIcon.classList.remove('hidden');
+            updatePlayButtonText();
+        } catch(e) {
+            showError("error.playFailed", e.message);
+        }
+    }
+
+    function pause() {
+        audioPlayer.pause();
+        isPlaying = false;
+        playIcon.classList.remove('hidden');
+        pauseIcon.classList.add('hidden');
+        updatePlayButtonText();
+    }
+    
+    // --- Metronome Logic ---
+    function initMetronomeAudioContext() {
+        if (!metronomeAudioContext) {
+            try {
+                metronomeAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+            } catch(e) {
+                showError("error.noWebAudio");
+                metronomeToggle.checked = false;
+                isMetronomeMode = false;
+            }
+        }
+    }
+
+    function playMetronomeClick() {
+        if (!metronomeAudioContext) return;
+        const time = metronomeAudioContext.currentTime;
+        const oscillator = metronomeAudioContext.createOscillator();
+        const gain = metronomeAudioContext.createGain();
+
+        oscillator.connect(gain);
+        gain.connect(metronomeAudioContext.destination);
+
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(1000, time);
+        gain.gain.setValueAtTime(1, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
+
+        oscillator.start(time);
+        oscillator.stop(time + 0.05);
+    }
+
+    function startMetronome() {
+        if (isMetronomePlaying) return;
+        initMetronomeAudioContext();
+
+        const targetBpm = parseFloat(targetBpmInput.value);
+        if (!targetBpm || targetBpm <= 0) {
+            showError("error.invalidBPM");
+            return;
+        }
+        
+        if (metronomeAudioContext.state === 'suspended') {
+            metronomeAudioContext.resume();
+        }
+
+        isMetronomePlaying = true;
+        playIcon.classList.add('hidden');
+        pauseIcon.classList.remove('hidden');
+        updatePlayButtonText();
+
+        const interval = (60 / targetBpm) * 1000;
+        playMetronomeClick();
+        metronomeTimer = setInterval(playMetronomeClick, interval);
+    }
+
+    function stopMetronome() {
+        if (!isMetronomePlaying) return;
+        clearInterval(metronomeTimer);
+        metronomeTimer = null;
+        isMetronomePlaying = false;
+        playIcon.classList.remove('hidden');
+        pauseIcon.classList.add('hidden');
+        updatePlayButtonText();
+    }
+
+    function toggleMetronome() {
+        isMetronomePlaying ? stopMetronome() : startMetronome();
+    }
+
+    function handleMetronomeToggle(event) {
+        isMetronomeMode = event.target.checked;
+        if (isPlaying) pause();
+        if (isMetronomePlaying) stopMetronome();
+        updateUiState();
+        updatePlayButtonText();
+    }
+    
+    async function loadPersistedFiles() {
+        try {
+            if (!('showOpenFilePicker' in window)) return;
+
+            musicXmlFileHandle = await getFileHandle(MUSICXML_HANDLE_KEY);
+            audioFileHandle = await getFileHandle(AUDIO_HANDLE_KEY);
+
+            // Process MusicXML if handle exists
+            if (musicXmlFileHandle) {
+                musicXmlFilename.textContent = musicXmlFileHandle.name;
+                musicXmlFilename.removeAttribute('data-i18n-key');
+                // Auto-load content if permission is already granted
+                if ((await musicXmlFileHandle.queryPermission()) === 'granted') {
+                    const file = await musicXmlFileHandle.getFile();
+                    await processMusicXmlFile(file);
+                }
+            }
+            
+            // Process Audio if handle exists
+            if (audioFileHandle) {
+                audioFilename.textContent = audioFileHandle.name;
+                audioFilename.removeAttribute('data-i18n-key');
+                // Auto-load content if permission is already granted
+                if ((await audioFileHandle.queryPermission()) === 'granted') {
+                    const file = await audioFileHandle.getFile();
+                    processAudioFile(file);
+                }
+            }
+            
+        } catch (e) {
+            console.warn("Could not load persisted file handles:", e);
+        }
+    }
+    
+    // --- MSCZ Backend Conversion ---
+    // On GitHub Pages the hostname won't be localhost → use the Render URL.
+    // Change RENDER_BACKEND_URL to your actual Render service URL after deploying.
+    const RENDER_BACKEND_URL = 'https://YOUR-APP-NAME.onrender.com';
+    const BACKEND_URL = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+        ? 'http://127.0.0.1:5000'
+        : RENDER_BACKEND_URL;
+    const msczInput    = document.getElementById('mscz-input');
+    const msczSelectBtn = document.getElementById('mscz-select-btn');
+    const msczFilenameEl = document.getElementById('mscz-filename');
+    const msczStatus   = document.getElementById('mscz-status');
+
+    msczSelectBtn.addEventListener('click', () => msczInput.click());
+    msczInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) processMsczFile(file);
+    });
+
+    async function processMsczFile(file) {
+        hideError();
+        msczFilenameEl.textContent = file.name;
+        msczStatus.textContent = '轉換中，請稍候…';
+        msczStatus.className = 'text-xs mt-1 text-sky-400';
+
+        showLoader('loading.processing');
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 s client timeout
+            let resp;
+            try {
+                resp = await fetch(`${BACKEND_URL}/convert`, {
+                    method: 'POST',
+                    body: formData,
+                    signal: controller.signal,
+                });
+            } finally {
+                clearTimeout(timeoutId);
+            }
+
+            const data = await resp.json();
+            if (!resp.ok) {
+                throw new Error(data.error || `HTTP ${resp.status}`);
+            }
+
+            // Feed MusicXML into the existing score flow
+            musicXmlFileContent = data.musicxml;
+            musicXmlFilename.textContent = file.name.replace(/\.mscz?$/i, '.musicxml');
+            musicXmlFilename.removeAttribute('data-i18n-key');
+
+            // Feed audio into the existing audio flow (if backend produced it)
+            if (data.audio) {
+                if (audioFileUrl) URL.revokeObjectURL(audioFileUrl);
+                const audioBlob = _b64ToBlob(data.audio, data.audio_type || 'audio/ogg');
+                audioFileUrl = URL.createObjectURL(audioBlob);
+                audioPlayer.src = audioFileUrl;
+                audioPlayer.controls = true;
+                audioFilename.textContent = file.name.replace(/\.mscz?$/i,
+                    data.audio_type === 'audio/wav' ? '.wav' : '.ogg');
+                audioFilename.removeAttribute('data-i18n-key');
+            }
+
+            msczStatus.textContent = '✓ 轉換完成';
+            msczStatus.className = 'text-xs mt-1 text-green-400';
+            updateUiState();
+        } catch (err) {
+            const msg = err.name === 'AbortError'
+                ? '轉換逾時 (> 90 秒)'
+                : (err.message || '未知錯誤');
+            msczStatus.textContent = `✗ ${msg}`;
+            msczStatus.className = 'text-xs mt-1 text-red-400';
+            errorText.textContent = `.mscz 轉換失敗：${msg}`;
+            errorMessageDiv.classList.remove('hidden');
+        } finally {
+            hideLoader();
+            msczInput.value = '';
+        }
+    }
+
+    function _b64ToBlob(b64, mimeType) {
+        const binary = atob(b64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        return new Blob([bytes], { type: mimeType });
+    }
+
+    // --- Initializer ---
+    async function initialize() {
+        adjustForMobile();
+        setUIMode('comprehensive');
+        setLanguage('zh-Hant');
+        await loadPersistedFiles();
+        updateUiState();
+        updateCurrentMeasureDisplay(null);
+    }
+    
+    initialize();
+  })();
+</script>
+</body>
+</html>
