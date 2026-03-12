@@ -30,25 +30,38 @@ export QSG_RENDER_LOOP="${QSG_RENDER_LOOP:-basic}"
 export QTWEBENGINE_DISABLE_SANDBOX="${QTWEBENGINE_DISABLE_SANDBOX:-1}"
 export QTWEBENGINE_CHROMIUM_FLAGS="${QTWEBENGINE_CHROMIUM_FLAGS:---no-sandbox --disable-gpu --disable-dev-shm-usage}"
 export SKIP_LIBJACK="${SKIP_LIBJACK:-1}"
+export APPDIR="${APPDIR:-/opt/musescore4}"
 
 args=("$@")
-extra_args=(--no-webview)
-output_path=""
+stdout_file="$(mktemp)"
+stderr_file="$(mktemp)"
 
-for ((i = 0; i < ${#args[@]}; i++)); do
-    if [[ "${args[$i]}" == "-o" && $((i + 1)) -lt ${#args[@]} ]]; then
-        output_path="${args[$((i + 1))]}"
-        break
+cleanup() {
+    rm -f "${stdout_file}" "${stderr_file}"
+}
+trap cleanup EXIT
+
+set +e
+"${REAL_MUSESCORE_BIN}" "${args[@]}" >"${stdout_file}" 2>"${stderr_file}"
+status=$?
+set -e
+
+cat "${stdout_file}"
+
+while IFS= read -r line; do
+    if [[ -z "${line}" ]]; then
+        continue
     fi
-done
 
-if [[ -n "${output_path}" ]]; then
-    lower_output="$(printf '%s' "${output_path}" | tr '[:upper:]' '[:lower:]')"
-    case "${lower_output}" in
-        *.xml|*.musicxml|*.mxl)
-            extra_args+=(--no-synthesizer)
-            ;;
-    esac
-fi
+    if [[ "${line}" == /lib/* && -e "${line}" ]]; then
+        continue
+    fi
 
-exec "${REAL_MUSESCORE_BIN}" "${extra_args[@]}" "${args[@]}"
+    if [[ "${line}" == AppImage:\ Using\ fallback\ for\ library* ]]; then
+        continue
+    fi
+
+    printf '%s\n' "${line}" >&2
+done < "${stderr_file}"
+
+exit "${status}"
