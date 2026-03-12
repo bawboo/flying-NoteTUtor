@@ -82,8 +82,8 @@ def run_musescore(args: list[str]) -> tuple[int, str, str]:
     cmd = [MUSESCORE_PATH] + args
 
     env = os.environ.copy()
-    # Qt offscreen platform: renders into memory, no display required
-    env["QT_QPA_PLATFORM"] = "offscreen"
+    # Use xcb platform with Xvfb display (MuseScore 4 requires this; offscreen exits 40)
+    env["QT_QPA_PLATFORM"] = "xcb"
     # Force Mesa software renderer (no GPU in Docker)
     env["LIBGL_ALWAYS_SOFTWARE"] = "1"
     env["QT_OPENGL"] = "software"

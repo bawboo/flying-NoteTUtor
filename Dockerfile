@@ -39,11 +39,18 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 ENV XDG_RUNTIME_DIR=/tmp/xdg-runtime
 RUN mkdir -p /tmp/xdg-runtime && chmod 700 /tmp/xdg-runtime
 
-# Use Qt offscreen platform: no X server or Xvfb needed in Docker
-ENV QT_QPA_PLATFORM=offscreen
+# Pre-create MuseScore 4 config dirs to avoid first-run setup failures
+RUN mkdir -p /root/.config/MuseScore \
+             /root/.local/share/MuseScore/MuseScore4 \
+    && printf '[application]\nhasCompletedFirstLaunchSetup=true\n' \
+       > /root/.config/MuseScore/MuseScore4.ini
+
+# Use Mesa software rendering (libgl1-mesa-dri provides the rasterizer)
 ENV LIBGL_ALWAYS_SOFTWARE=1
 ENV QT_OPENGL=software
+ENV DISPLAY=:99
 
 EXPOSE 5000
 
-CMD python3 server.py
+# Start Xvfb (required by MuseScore 4's xcb platform), wait for it, then run server
+CMD bash -c "Xvfb :99 -screen 0 1280x1024x24 -ac +render -noreset & sleep 3 && python3 server.py"
