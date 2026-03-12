@@ -74,15 +74,31 @@ MUSESCORE_PATH = find_musescore()
 def run_musescore(args: list[str]) -> tuple[int, str, str]:
     """
     Run MuseScore CLI with *args* and return (returncode, stdout, stderr).
+
+    On Linux, wraps the call with `xvfb-run -a` so MuseScore gets a virtual
+    display without requiring a pre-started X server.
+    Forces Mesa software rendering so no GPU is required (headless Docker).
     Raises TimeoutError or RuntimeError on failure.
     """
     cmd = [MUSESCORE_PATH] + args
+
+    # Wrap with xvfb-run when available (Linux / headless Docker)
+    xvfb = shutil.which("xvfb-run")
+    if xvfb:
+        cmd = [xvfb, "-a", "--server-args=-screen 0 1024x768x24"] + cmd
+
+    # Ensure Mesa software rasterizer is used (no GPU in Docker)
+    env = os.environ.copy()
+    env["LIBGL_ALWAYS_SOFTWARE"] = "1"
+    env["QT_XCB_GL_INTEGRATION"] = "none"
+
     try:
         result = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
             timeout=TIMEOUT_SECONDS,
+            env=env,
         )
         return result.returncode, result.stdout, result.stderr
     except subprocess.TimeoutExpired:
