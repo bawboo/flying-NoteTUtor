@@ -32,7 +32,16 @@ export QTWEBENGINE_CHROMIUM_FLAGS="${QTWEBENGINE_CHROMIUM_FLAGS:---no-sandbox --
 export SKIP_LIBJACK="${SKIP_LIBJACK:-1}"
 export APPDIR="${APPDIR:-/opt/musescore4}"
 
-args=("$@")
+args=()
+for arg in "$@"; do
+    case "${arg}" in
+        --no-webview|--no-synthesizer)
+            ;;
+        *)
+            args+=("${arg}")
+            ;;
+    esac
+done
 stdout_file="$(mktemp)"
 stderr_file="$(mktemp)"
 
