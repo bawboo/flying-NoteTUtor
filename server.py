@@ -198,8 +198,10 @@ def convert():
         except RuntimeError as exc:
             return jsonify({"error": str(exc)}), 503
 
-        if rc != 0 or not os.path.exists(xml_path):
-            # Filter out verbose QML type-registration warnings so the real error is visible
+        # MuseScore 4 may exit non-zero due to audio/rendering warnings even when
+        # the export file was successfully written — check file existence first.
+        xml_ok = os.path.exists(xml_path) and os.path.getsize(xml_path) > 0
+        if not xml_ok:
             filtered = "\n".join(
                 line for line in (err or "").splitlines()
                 if "qt.qml.typeregistration" not in line
@@ -208,6 +210,8 @@ def convert():
             return jsonify({
                 "error": f"MusicXML export failed (exit code {rc}). Details: {excerpt}"
             }), 500
+        if rc != 0:
+            print(f"[INFO] MusicXML export exit={rc} but file exists — treating as success", flush=True)
 
         with open(xml_path, "r", encoding="utf-8", errors="replace") as fp:
             musicxml_text = fp.read()
