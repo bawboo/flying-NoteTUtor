@@ -119,11 +119,29 @@ def run_musescore(args: list[str]) -> tuple[int, str, str]:
 
 @app.route("/health", methods=["GET"])
 def health():
-    """Quick health check — also reveals whether MuseScore was found."""
-    return jsonify({
-        "status": "ok",
-        "musescore": MUSESCORE_PATH or "not found",
-    })
+    """Quick health check — reveals MuseScore path, version, and help text."""
+    info: dict = {"status": "ok", "musescore": MUSESCORE_PATH or "not found"}
+    if MUSESCORE_PATH:
+        env = os.environ.copy()
+        env["QT_QPA_PLATFORM"] = "xcb"
+        env["LIBGL_ALWAYS_SOFTWARE"] = "1"
+        env["QT_LOGGING_RULES"] = "*.debug=false;qt.qpa.*=false;qt.qml.*=false"
+        for flag in ["-v", "--version", "-h", "--help"]:
+            try:
+                r = subprocess.run(
+                    [MUSESCORE_PATH, flag],
+                    capture_output=True, text=True, timeout=30, env=env,
+                )
+                out = (r.stdout + r.stderr).strip()
+                # Filter QML noise
+                out = "\n".join(l for l in out.splitlines()
+                                if "qt.qml.typeregistration" not in l)
+                if out:
+                    info[f"flag_{flag.lstrip('-')}"] = out[:2000]
+                    break
+            except Exception as exc:
+                info[f"flag_{flag.lstrip('-')}_error"] = str(exc)
+    return jsonify(info)
 
 
 @app.route("/convert", methods=["POST"])
