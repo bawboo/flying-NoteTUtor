@@ -99,6 +99,10 @@ def run_musescore(args: list[str]) -> tuple[int, str, str]:
             timeout=TIMEOUT_SECONDS,
             env=env,
         )
+        # Log full output server-side (visible in Render / docker logs)
+        if result.returncode != 0:
+            print(f"[MuseScore] exit={result.returncode}", flush=True)
+            print(f"[MuseScore] stderr:\n{result.stderr}", flush=True)
         return result.returncode, result.stdout, result.stderr
     except subprocess.TimeoutExpired:
         raise TimeoutError(f"MuseScore timed out after {TIMEOUT_SECONDS}s")
@@ -152,7 +156,9 @@ def convert():
 
     # --- Work inside a temporary directory ---
     with tempfile.TemporaryDirectory() as tmpdir:
-        input_path = os.path.join(tmpdir, original_name)
+        # Always use a safe ASCII filename — MuseScore CLI may fail on Unicode paths
+        safe_ext   = ".mscx" if original_name.lower().endswith(".mscx") else ".mscz"
+        input_path = os.path.join(tmpdir, "input" + safe_ext)
         xml_path   = os.path.join(tmpdir, "output.musicxml")
 
         upload.save(input_path)
