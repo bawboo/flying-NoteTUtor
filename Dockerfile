@@ -8,9 +8,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xvfb \
     python3 python3-pip \
     libglib2.0-0 \
-    # GL: libgl1-mesa-dri provides the Mesa software rasterizer (needed by
-    # LIBGL_ALWAYS_SOFTWARE=1); libgl1-mesa-glx + libopengl0 provide the .so stubs
-    libgl1-mesa-dri libgl1-mesa-glx libopengl0 libglu1-mesa \
+    # GL/EGL: mscore4portable requires libEGL.so.1 (libegl1) and libOpenGL.so.0 (libopengl0)
+    # libgl1-mesa-dri provides the Mesa software rasterizer for LIBGL_ALWAYS_SOFTWARE=1
+    libgl1-mesa-dri libgl1-mesa-glx libopengl0 libglu1-mesa libegl1 libegl-mesa0 \
     libfontconfig1 libnss3 \
     libxcomposite1 libxdamage1 libxrandr2 libxtst6 libasound2 \
     libdbus-1-3 libxkbcommon0 libxkbcommon-x11-0 \
