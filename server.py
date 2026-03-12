@@ -175,7 +175,12 @@ def convert():
             return jsonify({"error": str(exc)}), 503
 
         if rc != 0 or not os.path.exists(xml_path):
-            excerpt = err[:6000] if err else "(no stderr)"
+            # Filter out verbose QML type-registration warnings so the real error is visible
+            filtered = "\n".join(
+                line for line in (err or "").splitlines()
+                if "qt.qml.typeregistration" not in line
+            )
+            excerpt = (filtered[:4000] if filtered else "(no stderr — full log in server stdout)")
             return jsonify({
                 "error": f"MusicXML export failed (exit code {rc}). Details: {excerpt}"
             }), 500
