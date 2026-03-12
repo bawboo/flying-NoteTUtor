@@ -168,14 +168,14 @@ def convert():
 
         # ----- Export MusicXML (required) -----
         try:
-            rc, _, err = run_musescore(["-o", xml_path, input_path])
+            rc, _, err = run_musescore(["-F", "-o", xml_path, input_path])
         except TimeoutError as exc:
             return jsonify({"error": str(exc)}), 504
         except RuntimeError as exc:
             return jsonify({"error": str(exc)}), 503
 
         if rc != 0 or not os.path.exists(xml_path):
-            excerpt = err[:2000] if err else "(no stderr)"
+            excerpt = err[:6000] if err else "(no stderr)"
             return jsonify({
                 "error": f"MusicXML export failed (exit code {rc}). Details: {excerpt}"
             }), 500
@@ -190,7 +190,7 @@ def convert():
         for ext, mime in [(".ogg", "audio/ogg"), (".wav", "audio/wav")]:
             audio_path = os.path.join(tmpdir, f"output{ext}")
             try:
-                rc_a, _, _ = run_musescore(["-o", audio_path, input_path])
+                rc_a, _, _ = run_musescore(["-F", "-o", audio_path, input_path])
                 if rc_a == 0 and os.path.exists(audio_path):
                     with open(audio_path, "rb") as fp:
                         audio_b64 = base64.b64encode(fp.read()).decode()
