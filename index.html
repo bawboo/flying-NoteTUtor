@@ -1610,17 +1610,20 @@
         }
     }
     
-    // --- MSCZ Backend Conversion ---
-    // On GitHub Pages the hostname won't be localhost → use the Render URL.
-    // Change RENDER_BACKEND_URL to your actual Render service URL after deploying.
+    // --- MSCZ Conversion ---
+    // Prefer browser-side conversion via webmscore; fallback to Render only if needed.
     const RENDER_BACKEND_URL = 'https://flying-notetutor.onrender.com';
     const BACKEND_URL = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
         ? 'http://127.0.0.1:5000'
         : RENDER_BACKEND_URL;
+    const WEBMSCORE_SCRIPT_URL = 'https://cdn.jsdelivr.net/npm/webmscore@1.2.1/webmscore.js';
+    const WEBMSCORE_SOUNDFONT_URL = 'https://cdn.jsdelivr.net/gh/musescore/MuseScore@2.1/share/sound/FluidR3Mono_GM.sf3';
     const msczInput    = document.getElementById('mscz-input');
     const msczSelectBtn = document.getElementById('mscz-select-btn');
     const msczFilenameEl = document.getElementById('mscz-filename');
     const msczStatus   = document.getElementById('mscz-status');
+    let webMscoreRuntimePromise = null;
+    let webMscoreSoundfontPromise = null;
 
     msczSelectBtn.addEventListener('click', () => msczInput.click());
     msczInput.addEventListener('change', (e) => {
@@ -1670,30 +1673,118 @@
         return lines.join('\n');
     }
 
-    async function processMsczFile(file) {
-        hideError();
-        msczFilenameEl.textContent = file.name;
-        msczStatus.textContent = '轉換中，請稍候…';
-        msczStatus.className = 'text-xs mt-1 text-sky-400';
-
-        showLoader('loading.processing');
-        const formData = new FormData();
-        formData.append('file', file);
-
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 s client timeout
-            let resp;
-            try {
-                resp = await fetch(`${BACKEND_URL}/convert`, {
-                    method: 'POST',
-                    body: formData,
-                    signal: controller.signal,
-                });
-            } finally {
-                clearTimeout(timeoutId);
+    function loadExternalScript(src) {
+        return new Promise((resolve, reject) => {
+            const existing = document.querySelector(`script[data-dynamic-src="${src}"]`);
+            if (existing) {
+                existing.addEventListener('load', resolve, { once: true });
+                existing.addEventListener('error', () => reject(new Error(`Failed to load ${src}`)), { once: true });
+                if (existing.dataset.loaded === 'true') resolve();
+                return;
             }
 
+            const script = document.createElement('script');
+            script.src = src;
+            script.async = true;
+            script.dataset.dynamicSrc = src;
+            script.onload = () => {
+                script.dataset.loaded = 'true';
+                resolve();
+            };
+            script.onerror = () => reject(new Error(`Failed to load ${src}`));
+            document.head.appendChild(script);
+        });
+    }
+
+    async function getWebMscoreRuntime() {
+        if (!webMscoreRuntimePromise) {
+            webMscoreRuntimePromise = (async () => {
+                if (!window.WebMscore) {
+                    await loadExternalScript(WEBMSCORE_SCRIPT_URL);
+                }
+                await window.WebMscore.ready;
+                if (window.WebMscore.setLogLevel) {
+                    await window.WebMscore.setLogLevel(1);
+                }
+                return window.WebMscore;
+            })().catch(err => {
+                webMscoreRuntimePromise = null;
+                throw err;
+            });
+        }
+        return webMscoreRuntimePromise;
+    }
+
+    async function getWebMscoreSoundfont() {
+        if (!webMscoreSoundfontPromise) {
+            webMscoreSoundfontPromise = (async () => {
+                const resp = await fetch(WEBMSCORE_SOUNDFONT_URL);
+                if (!resp.ok) {
+                    throw new Error(`SoundFont download failed (HTTP ${resp.status})`);
+                }
+                return new Uint8Array(await resp.arrayBuffer());
+            })().catch(err => {
+                webMscoreSoundfontPromise = null;
+                throw err;
+            });
+        }
+        return webMscoreSoundfontPromise;
+    }
+
+    async function convertMsczInBrowser(file) {
+        const WebMscore = await getWebMscoreRuntime();
+        const format = file.name.toLowerCase().endsWith('.mscx') ? 'mscx' : 'mscz';
+        const fileData = new Uint8Array(await file.arrayBuffer());
+        let score = null;
+
+        try {
+            score = await WebMscore.load(format, fileData);
+            const musicxml = await score.saveXml();
+            let audioBlob = null;
+            let audioType = null;
+
+            try {
+                const soundfont = await getWebMscoreSoundfont();
+                await score.setSoundFont(soundfont);
+                try {
+                    const oggData = await score.saveAudio('ogg');
+                    audioBlob = new Blob([oggData], { type: 'audio/ogg' });
+                    audioType = 'audio/ogg';
+                } catch (oggErr) {
+                    console.warn('Client-side OGG export failed, retrying as WAV.', oggErr);
+                    const wavData = await score.saveAudio('wav');
+                    audioBlob = new Blob([wavData], { type: 'audio/wav' });
+                    audioType = 'audio/wav';
+                }
+            } catch (audioErr) {
+                console.warn('Client-side audio export failed.', audioErr);
+            }
+
+            return {
+                musicxml,
+                audio_blob: audioBlob,
+                audio_type: audioType,
+                source: 'browser',
+            };
+        } finally {
+            if (score) {
+                score.destroy();
+            }
+        }
+    }
+
+    async function convertMsczViaBackend(file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 90000);
+
+        try {
+            const resp = await fetch(`${BACKEND_URL}/convert`, {
+                method: 'POST',
+                body: formData,
+                signal: controller.signal,
+            });
             const rawText = await resp.text();
             let data = {};
             if (rawText) {
@@ -1706,31 +1797,65 @@
             if (!resp.ok) {
                 throw new Error(formatMsczBackendError(data, resp.status));
             }
+            data.source = 'backend';
+            return data;
+        } finally {
+            clearTimeout(timeoutId);
+        }
+    }
 
-            // Feed MusicXML into the existing score flow
-            musicXmlFileContent = data.musicxml;
-            musicXmlFilename.textContent = file.name.replace(/\.mscz?$/i, '.musicxml');
-            musicXmlFilename.removeAttribute('data-i18n-key');
+    function applyConvertedMsczResult(file, data) {
+        const hasAudio = !!(data.audio_blob || data.audio);
+        const outputBaseName = file.name.replace(/\.msc[zx]$/i, '');
 
-            // Feed audio into the existing audio flow (if backend produced it)
-            if (data.audio) {
-                if (audioFileUrl) URL.revokeObjectURL(audioFileUrl);
-                const audioBlob = _b64ToBlob(data.audio, data.audio_type || 'audio/ogg');
-                audioFileUrl = URL.createObjectURL(audioBlob);
-                audioPlayer.src = audioFileUrl;
-                audioPlayer.controls = true;
-                audioFilename.textContent = file.name.replace(/\.mscz?$/i,
-                    data.audio_type === 'audio/wav' ? '.wav' : '.ogg');
-                audioFilename.removeAttribute('data-i18n-key');
-            } else {
-                clearGeneratedAudioPreview();
-            }
+        musicXmlFileContent = data.musicxml;
+        musicXmlFilename.textContent = `${outputBaseName}.musicxml`;
+        musicXmlFilename.removeAttribute('data-i18n-key');
 
-            msczStatus.textContent = data.audio
+        if (hasAudio) {
+            if (audioFileUrl) URL.revokeObjectURL(audioFileUrl);
+            const audioBlob = data.audio_blob || _b64ToBlob(data.audio, data.audio_type || 'audio/ogg');
+            audioFileUrl = URL.createObjectURL(audioBlob);
+            audioPlayer.src = audioFileUrl;
+            audioPlayer.controls = true;
+            audioFilename.textContent = `${outputBaseName}${data.audio_type === 'audio/wav' ? '.wav' : '.ogg'}`;
+            audioFilename.removeAttribute('data-i18n-key');
+        } else {
+            clearGeneratedAudioPreview();
+        }
+
+        if (data.source === 'browser') {
+            msczStatus.textContent = hasAudio
+                ? '✓ 本機轉換完成'
+                : '✓ 本機轉換完成（樂譜成功，未產生音訊）';
+        } else {
+            msczStatus.textContent = hasAudio
                 ? '✓ 轉換完成'
                 : '✓ 轉換完成（樂譜成功，未產生音訊）';
-            msczStatus.className = 'text-xs mt-1 text-green-400';
-            updateUiState();
+        }
+        msczStatus.className = 'text-xs mt-1 text-green-400';
+        updateUiState();
+    }
+
+    async function processMsczFile(file) {
+        hideError();
+        msczFilenameEl.textContent = file.name;
+        msczStatus.textContent = '本機轉換中，首次可能需要下載引擎與音源…';
+        msczStatus.className = 'text-xs mt-1 text-sky-400';
+
+        showLoader('loading.processing');
+
+        try {
+            try {
+                const browserData = await convertMsczInBrowser(file);
+                applyConvertedMsczResult(file, browserData);
+            } catch (browserErr) {
+                console.warn('Client-side MSCZ conversion failed; falling back to backend.', browserErr);
+                msczStatus.textContent = '本機轉換失敗，改由伺服器重試…';
+                msczStatus.className = 'text-xs mt-1 text-amber-400';
+                const backendData = await convertMsczViaBackend(file);
+                applyConvertedMsczResult(file, backendData);
+            }
         } catch (err) {
             const msg = err.name === 'AbortError'
                 ? '轉換逾時 (> 90 秒)'
