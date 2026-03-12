@@ -1,50 +1,72 @@
 """
-Download the latest MuseScore 4 Linux AppImage from GitHub.
-Falls back to a pinned URL if the API is unavailable.
+Download MuseScore 4 Linux x86_64 AppImage from GitHub releases.
+
+Strategy: parse the releases HTML page — no API token, no rate limit.
+Tries the 'latest' page first, then falls back to specific version tags.
 """
-import urllib.request, json, sys, os
+import urllib.request, re, sys, os
 
-API_URL  = 'https://api.github.com/repos/musescore/MuseScore/releases/latest'
-# Pinned fallback — update tag/filename if a newer release is needed
-FALLBACK = ('https://github.com/musescore/MuseScore/releases/download/'
-            'v4.4.4/MuseScore-Studio-4.4.4.242570447-x86_64.AppImage')
 DEST     = '/tmp/mscore.AppImage'
-MIN_SIZE = 10 * 1024 * 1024  # 10 MB — anything smaller is likely an error page
+MIN_SIZE = 50 * 1024 * 1024   # 50 MB — anything smaller is a failed download
+HEADERS  = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64)'}
 
-def fetch_url():
-    print('Querying GitHub API for latest MuseScore release...', flush=True)
+# Release pages to try in order (latest redirect first, then pinned tags)
+RELEASE_PAGES = [
+    'https://github.com/musescore/MuseScore/releases/latest',
+    'https://github.com/musescore/MuseScore/releases/expanded_assets/v4.4.4',
+    'https://github.com/musescore/MuseScore/releases/tag/v4.4.4',
+    'https://github.com/musescore/MuseScore/releases/tag/v4.4.2',
+    'https://github.com/musescore/MuseScore/releases/tag/v4.4.0',
+    'https://github.com/musescore/MuseScore/releases/tag/v4.3.2',
+]
+
+APPIMAGE_RE = re.compile(
+    r'href="(/musescore/MuseScore/releases/download/[^"]*x86_64\.AppImage[^"]*)"'
+)
+
+
+def page_urls(page_url: str) -> list[str]:
+    """Fetch a GitHub releases page and return all AppImage asset URLs found."""
     try:
-        req = urllib.request.Request(
-            API_URL, headers={'User-Agent': 'Docker-Build/1.0',
-                              'Accept': 'application/vnd.github.v3+json'})
+        req = urllib.request.Request(page_url, headers=HEADERS)
         with urllib.request.urlopen(req, timeout=30) as r:
-            data = json.load(r)
-        assets = [a for a in data['assets'] if 'x86_64.AppImage' in a['name']]
-        if assets:
-            return assets[0]['browser_download_url']
-        print(f'No AppImage asset found. Available: {[a["name"] for a in data["assets"]]}',
-              flush=True)
+            html = r.read().decode('utf-8', errors='replace')
+        found = ['https://github.com' + m for m in APPIMAGE_RE.findall(html)]
+        return found
     except Exception as exc:
-        print(f'GitHub API error: {exc}', flush=True)
-    print(f'Using fallback URL: {FALLBACK}', flush=True)
-    return FALLBACK
+        print(f'  Fetch failed: {exc}', flush=True)
+        return []
 
-url = fetch_url()
-print(f'Downloading: {url}', flush=True)
 
-urllib.request.urlretrieve(url, DEST)
-
-size = os.path.getsize(DEST)
-print(f'Downloaded {size:,} bytes.', flush=True)
-
-if size < MIN_SIZE:
-    print(f'ERROR: file is only {size} bytes — download likely failed.', flush=True)
-    # Print first 500 chars so we can see if it's an HTML error page
+def try_download(url: str) -> bool:
+    """Download from URL to DEST. Returns True on success."""
     try:
-        with open(DEST, 'rb') as f:
-            print(f.read(500), flush=True)
-    except Exception:
-        pass
-    sys.exit(1)
+        print(f'  Downloading: {url}', flush=True)
+        urllib.request.urlretrieve(url, DEST)
+        size = os.path.getsize(DEST)
+        if size < MIN_SIZE:
+            os.remove(DEST)
+            print(f'  Too small ({size:,} bytes) — likely an error page', flush=True)
+            return False
+        print(f'  OK — {size:,} bytes', flush=True)
+        return True
+    except Exception as exc:
+        print(f'  Failed: {exc}', flush=True)
+        if os.path.exists(DEST):
+            os.remove(DEST)
+        return False
 
-print('Download OK.', flush=True)
+
+seen: set[str] = set()
+
+for page in RELEASE_PAGES:
+    print(f'Checking page: {page}', flush=True)
+    for url in page_urls(page):
+        if url in seen:
+            continue
+        seen.add(url)
+        if try_download(url):
+            sys.exit(0)
+
+print('ERROR: Could not download MuseScore AppImage from any source.', flush=True)
+sys.exit(1)
