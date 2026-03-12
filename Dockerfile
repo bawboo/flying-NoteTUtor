@@ -36,16 +36,14 @@ WORKDIR /app
 COPY requirements.txt server.py ./
 RUN pip3 install --no-cache-dir -r requirements.txt
 
-# Silence the XDG_RUNTIME_DIR warning from MuseScore
 ENV XDG_RUNTIME_DIR=/tmp/xdg-runtime
 RUN mkdir -p /tmp/xdg-runtime && chmod 700 /tmp/xdg-runtime
 
-# Force Mesa software rendering — Docker containers have no GPU.
-# Without this Qt 6 fails to initialize OpenGL and exits with code 127.
+# Use Qt offscreen platform: no X server or Xvfb needed in Docker
+ENV QT_QPA_PLATFORM=offscreen
 ENV LIBGL_ALWAYS_SOFTWARE=1
-ENV QT_XCB_GL_INTEGRATION=none
+ENV QT_OPENGL=software
 
 EXPOSE 5000
 
-# No need to pre-start Xvfb here — server.py calls xvfb-run per conversion
 CMD python3 server.py
