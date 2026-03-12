@@ -28,8 +28,10 @@ RUN set -ex \
     && for lib in libOpenGL.so.0 libjack.so.0 libnss3.so libwayland-client.so.0; do \
         resolved="$(ldconfig -p | awk -v name="$lib" '$1 == name { print $NF; exit }')"; \
         test -n "$resolved"; \
+        test -e "$resolved"; \
+        target="/lib/x86_64-linux-gnu/$lib"; \
         mkdir -p /lib/x86_64-linux-gnu; \
-        ln -sf "$resolved" "/lib/x86_64-linux-gnu/$lib"; \
+        if [ "$resolved" != "$target" ]; then ln -sf "$resolved" "$target"; fi; \
     done
 
 # Configure PulseAudio to use a null sink (no real audio hardware needed)
