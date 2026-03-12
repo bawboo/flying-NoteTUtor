@@ -83,15 +83,10 @@ def run_musescore(args: list[str]) -> tuple[int, str, str]:
     cmd = [MUSESCORE_PATH] + args
 
     env = os.environ.copy()
-    # Use xcb platform with Xvfb display (MuseScore 4 requires this; offscreen exits 40)
+    # xcb + Xvfb: MuseScore 4 needs a real X display (offscreen exits 40)
     env["QT_QPA_PLATFORM"] = "xcb"
-    # Force Mesa software renderer (no GPU in Docker)
     env["LIBGL_ALWAYS_SOFTWARE"] = "1"
-    env["QT_OPENGL"] = "software"
-    # Qt Quick / QML software rendering — critical for QML-heavy apps (MuseScore 4)
-    env["QT_QUICK_BACKEND"] = "software"
-    env["QSG_RENDER_LOOP"] = "basic"   # single-threaded loop, safer in headless env
-    # Suppress Qt/QML debug noise (keeps stderr readable for real errors)
+    # Suppress Qt/QML debug noise
     env["QT_LOGGING_RULES"] = "*.debug=false;qt.qpa.*=false;qt.qml.*=false"
 
     try:
@@ -180,28 +175,29 @@ def convert():
         # Always use a safe ASCII filename — MuseScore CLI may fail on Unicode paths
         safe_ext   = ".mscx" if original_name.lower().endswith(".mscx") else ".mscz"
         input_path = os.path.join(tmpdir, "input" + safe_ext)
-        xml_path   = os.path.join(tmpdir, "output.musicxml")
-
         upload.save(input_path)
 
         if os.path.getsize(input_path) == 0:
             return jsonify({"error": "Uploaded file is empty or corrupt."}), 400
 
-        # ----- Export MusicXML via job file (MuseScore 4 batch mode) -----
-        job_path = os.path.join(tmpdir, "job.json")
-        with open(job_path, "w") as fp:
-            json.dump([{"in": input_path, "out": xml_path}], fp)
-        try:
-            rc, _, err = run_musescore(["-j", job_path])
-        except TimeoutError as exc:
-            return jsonify({"error": str(exc)}), 504
-        except RuntimeError as exc:
-            return jsonify({"error": str(exc)}), 503
+        # ----- Export MusicXML — try .xml then .musicxml (MuseScore 4 format support varies) -----
+        xml_path = None
+        rc, err = 0, ""
+        for xml_ext in ["output.xml", "output.musicxml"]:
+            candidate = os.path.join(tmpdir, xml_ext)
+            try:
+                rc, _, err = run_musescore(["-o", candidate, input_path])
+            except TimeoutError as exc:
+                return jsonify({"error": str(exc)}), 504
+            except RuntimeError as exc:
+                return jsonify({"error": str(exc)}), 503
+            if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
+                xml_path = candidate
+                if rc != 0:
+                    print(f"[INFO] export exit={rc} but file exists — continuing", flush=True)
+                break
 
-        # MuseScore 4 may exit non-zero due to audio/rendering warnings even when
-        # the export file was successfully written — check file existence first.
-        xml_ok = os.path.exists(xml_path) and os.path.getsize(xml_path) > 0
-        if not xml_ok:
+        if not xml_path:
             filtered = "\n".join(
                 line for line in (err or "").splitlines()
                 if "qt.qml.typeregistration" not in line
@@ -223,17 +219,14 @@ def convert():
         for ext, mime in [(".ogg", "audio/ogg"), (".wav", "audio/wav")]:
             audio_path = os.path.join(tmpdir, f"output{ext}")
             try:
-                audio_job = os.path.join(tmpdir, f"job_audio{ext}.json")
-                with open(audio_job, "w") as fjob:
-                    json.dump([{"in": input_path, "out": audio_path}], fjob)
-                rc_a, _, _ = run_musescore(["-j", audio_job])
-                if rc_a == 0 and os.path.exists(audio_path):
+                rc_a, _, _ = run_musescore(["-o", audio_path, input_path])
+                if os.path.exists(audio_path) and os.path.getsize(audio_path) > 0:
                     with open(audio_path, "rb") as fp:
                         audio_b64 = base64.b64encode(fp.read()).decode()
                     audio_mime = mime
-                    break  # success — stop trying other formats
+                    break
             except (TimeoutError, RuntimeError):
-                continue  # try next format
+                continue
 
         return jsonify({
             "musicxml":   musicxml_text,
