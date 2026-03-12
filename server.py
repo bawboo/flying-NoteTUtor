@@ -195,5 +195,6 @@ if __name__ == "__main__":
         print(f"[INFO] MuseScore found: {MUSESCORE_PATH}", flush=True)
     else:
         print("[WARN] MuseScore not found — /convert will return HTTP 503.", flush=True)
-    print("[INFO] Backend listening on http://127.0.0.1:5000", flush=True)
-    app.run(host="127.0.0.1", port=5000, debug=False)
+    port = int(os.environ.get("PORT", 5000))
+    print(f"[INFO] Backend listening on 0.0.0.0:{port}", flush=True)
+    app.run(host="0.0.0.0", port=port, debug=False)

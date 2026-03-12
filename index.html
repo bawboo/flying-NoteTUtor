@@ -213,44 +213,50 @@
           </div>
           
           <!-- File Upload Section -->
-          <div id="file-upload-container" class="space-y-4">
+          <div id="file-upload-container" class="flex gap-3">
 
-            <!-- ★ MSCZ Direct Import (requires server.py running) -->
-            <div id="mscz-upload-wrapper" class="pb-3 mb-1 border-b border-dashed border-purple-700">
-              <label class="block text-sm font-medium text-purple-300 mb-1">直接匯入 .mscz <span class="text-gray-500 font-normal">(需啟動 server.py)</span></label>
-              <div class="flex items-center space-x-2">
-                <button type="button" id="mscz-select-btn" class="px-4 py-2 bg-purple-700 hover:bg-purple-600 text-white text-sm font-semibold rounded-md transition-colors whitespace-nowrap">選擇 .mscz</button>
-                <span id="mscz-filename" class="text-sm text-gray-400 truncate">未選擇任何檔案</span>
+            <!-- 左欄：直接匯入 .mscz -->
+            <div id="mscz-upload-wrapper" class="w-1/2 flex flex-col">
+              <label class="block text-sm font-medium text-purple-300 mb-2">直接匯入 .mscz <span class="font-normal">(MuseScore 檔案)</span></label>
+              <div class="flex-1 flex items-center justify-center py-2">
+                <button type="button" id="mscz-select-btn" class="w-full py-4 bg-purple-700 hover:bg-purple-600 text-white font-semibold rounded-md transition-colors text-base">選擇 .mscz</button>
               </div>
               <input type="file" id="mscz-input" accept=".mscz,.mscx" class="sr-only">
+              <span id="mscz-filename" class="text-xs text-gray-400 truncate mt-1">未選擇任何檔案</span>
               <div id="mscz-status" class="hidden text-xs mt-1"></div>
-              <p class="text-xs text-gray-500 mt-1">後端自動轉為 MusicXML 與音訊，填入下方欄位</p>
             </div>
 
-            <div id="musicxml-upload-wrapper">
-              <label for="musicxml-select-btn" class="block text-sm font-medium text-gray-300 mb-1" data-i18n-key="scoreFile">樂譜檔案</label>
-              <div class="flex items-center space-x-2">
-                <button type="button" id="musicxml-select-btn" class="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white text-sm font-semibold rounded-md transition-colors whitespace-nowrap" data-i18n-key="selectFileBtn">選擇檔案</button>
-                <span id="musicxml-filename" class="text-sm text-gray-400 truncate" data-i18n-key="noFileSelected">未選擇任何檔案</span>
+            <!-- 右欄：手動選擇 MusicXML + 音訊 -->
+            <div class="w-1/2 flex flex-col gap-3">
+              <p class="text-sm font-medium text-gray-500 italic">Optional — 或分別上傳以下檔案</p>
+
+              <div id="musicxml-upload-wrapper">
+                <label for="musicxml-select-btn" class="block text-sm font-medium text-gray-300 mb-1" data-i18n-key="scoreFile">樂譜檔案</label>
+                <div class="flex items-center space-x-2">
+                  <button type="button" id="musicxml-select-btn" class="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white text-sm font-semibold rounded-md transition-colors whitespace-nowrap" data-i18n-key="selectFileBtn">選擇檔案</button>
+                  <span id="musicxml-filename" class="text-sm text-gray-400 truncate" data-i18n-key="noFileSelected">未選擇任何檔案</span>
+                </div>
+                <input type="file" id="musicxml-input" accept=".xml,.musicxml,.mxl,application/vnd.recordare.musicxml+xml,text/xml" class="sr-only">
+                <p class="text-xs text-gray-500 mt-1" data-i18n-key="scoreFileDesc">請選擇一個 .musicxml 樂譜檔案 <a href="https://musescore.org/zh-hans/handbook/4/wenjiandaochu#%E5%AF%BC%E5%87%BA%E6%82%A8%E7%9A%84%E4%B9%90%E8%B0%B1" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:text-sky-300 underline" data-i18n-key="scoreFileDescLink">(可從 MuseScore 匯出)</a></p>
               </div>
-              <input type="file" id="musicxml-input" accept=".xml,.musicxml,.mxl,application/vnd.recordare.musicxml+xml,text/xml" class="sr-only">
-              <p class="text-xs text-gray-500 mt-1" data-i18n-key="scoreFileDesc">請選擇一個 .musicxml 樂譜檔案 <a href="https://musescore.org/zh-hans/handbook/4/wenjiandaochu#%E5%AF%BC%E5%87%BA%E6%82%A8%E7%9A%84%E4%B9%90%E8%B0%B1" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:text-sky-300 underline" data-i18n-key="scoreFileDescLink">(可從 MuseScore 匯出)</a></p>
-            </div>
-            <div id="audio-upload-wrapper">
-              <label for="audio-select-btn" class="block text-sm font-medium text-gray-300 mb-1" data-i18n-key="audioFile">音訊檔案</label>
-              <div class="flex items-center space-x-2">
-                <button type="button" id="audio-select-btn" class="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white text-sm font-semibold rounded-md transition-colors whitespace-nowrap" data-i18n-key="selectFileBtn">選擇檔案</button>
-                <span id="audio-filename" class="text-sm text-gray-400 truncate" data-i18n-key="noFileSelected">未選擇任何檔案</span>
+
+              <div id="audio-upload-wrapper">
+                <label for="audio-select-btn" class="block text-sm font-medium text-gray-300 mb-1" data-i18n-key="audioFile">音訊檔案</label>
+                <div class="flex items-center space-x-2">
+                  <button type="button" id="audio-select-btn" class="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white text-sm font-semibold rounded-md transition-colors whitespace-nowrap" data-i18n-key="selectFileBtn">選擇檔案</button>
+                  <span id="audio-filename" class="text-sm text-gray-400 truncate" data-i18n-key="noFileSelected">未選擇任何檔案</span>
+                </div>
+                <input type="file" id="audio-input" accept=".mp3,.wav,.ogg,.m4a,.aac,.flac" class="sr-only">
+                <p class="text-xs text-gray-500 mt-1" data-i18n-key="audioFileDesc">請選擇一個音檔 <a href="https://musescore.org/zh-hans/handbook/4/wenjiandaochu#%E5%AF%BC%E5%87%BA%E6%82%A8%E7%9A%84%E4%B9%90%E8%B0%B1" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:text-sky-300 underline" data-i18n-key="audioFileDescLink">(可從 MuseScore 匯出)</a></p>
               </div>
-              <input type="file" id="audio-input" accept=".mp3,.wav,.ogg,.m4a,.aac,.flac" class="sr-only">
-              <p class="text-xs text-gray-500 mt-1" data-i18n-key="audioFileDesc">請選擇一個音檔 <a href="https://musescore.org/zh-hans/handbook/4/wenjiandaochu#%E5%AF%BC%E5%87%BA%E6%82%A8%E7%9A%84%E4%B9%90%E8%B0%B1" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:text-sky-300 underline" data-i18n-key="audioFileDescLink">(可從 MuseScore 匯出)</a></p>
             </div>
-             <!-- New Help Section -->
-            <div class="pt-2 text-sm">
-                <a href="#" id="musescore-help-link" class="text-sky-400 hover:text-sky-300 underline cursor-pointer" data-i18n-key="musescoreHelpLink">如何使用 MuseScore 取得這些檔案?</a>
-            </div>
+          </div><!-- end file-upload-container -->
+
+          <!-- Help Link -->
+          <div class="pt-1 text-sm">
+              <a href="#" id="musescore-help-link" class="text-sky-400 hover:text-sky-300 underline cursor-pointer" data-i18n-key="musescoreHelpLink">如何使用 MuseScore 取得這些檔案?</a>
           </div>
-          
+
           <div id="load-button-wrapper" class="pt-4 border-t border-gray-700">
               <button id="load-button" class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-md transition-all" data-i18n-key="loadScoreInfoBtn">
                   讀取樂譜資訊
