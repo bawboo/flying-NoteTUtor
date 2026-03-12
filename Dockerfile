@@ -16,7 +16,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libdbus-1-3 libxkbcommon0 libxkbcommon-x11-0 \
     libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
     libxcb-render-util0 libxcb-xinerama0 libxcb-xkb1 libxcb-shape0 \
+    # JACK audio (libjack.so.0) — MuseScore 4 tries to load this for audio init
+    libjack-jackd2-0 \
+    # PulseAudio with null sink — gives MuseScore a virtual audio device in Docker
+    pulseaudio pulseaudio-utils \
     && rm -rf /var/lib/apt/lists/*
+
+# Configure PulseAudio to use a null sink (no real audio hardware needed)
+RUN echo "load-module module-null-sink\nload-module module-native-protocol-unix" \
+    > /etc/pulse/default.pa
 
 # --- Step 1: Download AppImage (separate RUN so build log shows this step clearly) ---
 COPY download_musescore.py /tmp/
@@ -52,5 +60,5 @@ ENV DISPLAY=:99
 
 EXPOSE 5000
 
-# Start Xvfb (required by MuseScore 4's xcb platform), wait for it, then run server
-CMD bash -c "Xvfb :99 -screen 0 1280x1024x24 -ac +render -noreset & sleep 3 && python3 server.py"
+# Start PulseAudio (null sink) + Xvfb, wait, then run server
+CMD bash -c "pulseaudio --daemonize --exit-idle-time=-1 && Xvfb :99 -screen 0 1280x1024x24 -ac +render -noreset & sleep 3 && python3 server.py"
