@@ -104,14 +104,17 @@ def build_musescore_env() -> dict[str, str]:
     env.setdefault("QT_OPENGL", "software")
     env.setdefault("QT_QUICK_BACKEND", "software")
     env.setdefault("QSG_RENDER_LOOP", "basic")
+    # Official MuseScore env knob to skip JACK init when it causes trouble.
+    env.setdefault("SKIP_LIBJACK", "1")
     env["QT_LOGGING_RULES"] = QT_LOGGING_RULES
     return env
 
 
-def build_musescore_cmd(args: list[str]) -> list[str]:
+def build_musescore_cmd(args: list[str], env: dict[str, str]) -> list[str]:
     """Wrap MuseScore with xvfb-run when Linux has no DISPLAY but xvfb-run exists."""
     base_cmd = [MUSESCORE_PATH] + args
-    if platform.system() == "Linux" and not os.environ.get("DISPLAY"):
+    qt_platform = env.get("QT_QPA_PLATFORM", "xcb")
+    if platform.system() == "Linux" and not env.get("DISPLAY") and qt_platform == "xcb":
         xvfb_run = shutil.which("xvfb-run")
         if xvfb_run:
             return [
@@ -213,15 +216,17 @@ def musescore_error_response(summary: str, diagnostic: dict, *, stage: str) -> t
     return jsonify(payload), diagnostic["status_code"]
 
 
-def run_musescore(args: list[str]) -> tuple[int, str, str]:
+def run_musescore(args: list[str], *, env_overrides: dict[str, str] | None = None) -> tuple[int, str, str]:
     """
     Run MuseScore CLI with *args* and return (returncode, stdout, stderr).
 
     Uses xcb + Xvfb for headless Linux and software rendering in containers.
     Raises TimeoutError or RuntimeError on failure.
     """
-    cmd = build_musescore_cmd(args)
     env = build_musescore_env()
+    if env_overrides:
+        env.update(env_overrides)
+    cmd = build_musescore_cmd(args, env)
 
     try:
         result = subprocess.run(
@@ -240,6 +245,48 @@ def run_musescore(args: list[str]) -> tuple[int, str, str]:
         raise TimeoutError(f"MuseScore timed out after {TIMEOUT_SECONDS}s")
     except FileNotFoundError:
         raise RuntimeError(f"MuseScore executable not found: {MUSESCORE_PATH}")
+
+
+def export_with_attempts(
+    output_path: str,
+    input_path: str,
+    attempts: list[dict],
+) -> tuple[str | None, int, str, dict | None]:
+    """
+    Try multiple MuseScore CLI combinations until output_path is produced.
+
+    Returns (output_path_or_none, last_returncode, last_stderr, last_diagnostic).
+    """
+    last_rc = 0
+    last_err = ""
+    last_diagnostic = None
+
+    for attempt in attempts:
+        args = attempt["args_factory"](output_path, input_path)
+        env_overrides = attempt.get("env", {})
+        label = attempt.get("label", "unknown")
+        try:
+            rc, _, err = run_musescore(args, env_overrides=env_overrides)
+        except TimeoutError:
+            raise
+        except RuntimeError:
+            raise
+
+        last_rc = rc
+        last_err = err
+        last_diagnostic = diagnose_musescore_failure(rc, err)
+
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+            if rc != 0:
+                print(
+                    f"[INFO] export attempt '{label}' exit={rc} but file exists — continuing",
+                    flush=True,
+                )
+            return output_path, rc, err, last_diagnostic
+
+        print(f"[WARN] export attempt '{label}' failed with exit={rc}", flush=True)
+
+    return None, last_rc, last_err, last_diagnostic
 
 
 # ---------------------------------------------------------------------------
@@ -261,7 +308,7 @@ def health():
         for flag in ["-v", "--version", "-h", "--help"]:
             try:
                 r = subprocess.run(
-                    build_musescore_cmd([flag]),
+                    build_musescore_cmd(["--no-webview", flag], build_musescore_env()),
                     capture_output=True,
                     text=True,
                     timeout=30,
@@ -327,20 +374,60 @@ def convert():
         xml_path = None
         rc, err = 0, ""
         musicxml_diagnostic = None
+        musicxml_attempts = [
+            {
+                "label": "lean-xcb",
+                "args_factory": lambda output, input_file: [
+                    "--no-webview",
+                    "--no-synthesizer",
+                    "--force",
+                    "--revert-settings",
+                    "-o",
+                    output,
+                    input_file,
+                ],
+            },
+            {
+                "label": "lean-minimal",
+                "env": {"QT_QPA_PLATFORM": "minimal"},
+                "args_factory": lambda output, input_file: [
+                    "--no-webview",
+                    "--no-synthesizer",
+                    "--force",
+                    "--revert-settings",
+                    "-o",
+                    output,
+                    input_file,
+                ],
+            },
+            {
+                "label": "lean-offscreen",
+                "env": {"QT_QPA_PLATFORM": "offscreen"},
+                "args_factory": lambda output, input_file: [
+                    "--no-webview",
+                    "--no-synthesizer",
+                    "--force",
+                    "--revert-settings",
+                    "-o",
+                    output,
+                    input_file,
+                ],
+            },
+        ]
         for xml_ext in ["output.xml", "output.musicxml"]:
             candidate = os.path.join(tmpdir, xml_ext)
             try:
-                rc, _, err = run_musescore(["-o", candidate, input_path])
+                xml_path, rc, err, musicxml_diagnostic = export_with_attempts(
+                    candidate,
+                    input_path,
+                    musicxml_attempts,
+                )
             except TimeoutError as exc:
                 return jsonify({"error": str(exc)}), 504
             except RuntimeError as exc:
                 return jsonify({"error": str(exc)}), 503
-            if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
-                xml_path = candidate
-                if rc != 0:
-                    print(f"[INFO] export exit={rc} but file exists — continuing", flush=True)
+            if xml_path:
                 break
-            musicxml_diagnostic = diagnose_musescore_failure(rc, err)
 
         if not xml_path:
             diagnostic = musicxml_diagnostic or diagnose_musescore_failure(rc, err)
@@ -359,18 +446,45 @@ def convert():
         audio_b64: str | None = None
         audio_mime: str | None = None
         warnings: list[dict] = []
+        audio_attempts = [
+            {
+                "label": "audio-xcb",
+                "args_factory": lambda output, input_file: [
+                    "--no-webview",
+                    "--force",
+                    "--revert-settings",
+                    "-o",
+                    output,
+                    input_file,
+                ],
+            },
+            {
+                "label": "audio-minimal",
+                "env": {"QT_QPA_PLATFORM": "minimal"},
+                "args_factory": lambda output, input_file: [
+                    "--no-webview",
+                    "--force",
+                    "--revert-settings",
+                    "-o",
+                    output,
+                    input_file,
+                ],
+            },
+        ]
 
         for ext, mime in [(".ogg", "audio/ogg"), (".wav", "audio/wav")]:
             audio_path = os.path.join(tmpdir, f"output{ext}")
             try:
-                rc_a, _, _ = run_musescore(["-o", audio_path, input_path])
-                if os.path.exists(audio_path) and os.path.getsize(audio_path) > 0:
+                audio_result, rc_a, _, _ = export_with_attempts(
+                    audio_path,
+                    input_path,
+                    audio_attempts,
+                )
+                if audio_result:
                     with open(audio_path, "rb") as fp:
                         audio_b64 = base64.b64encode(fp.read()).decode()
                     audio_mime = mime
                     break
-                if rc_a != 0:
-                    print(f"[WARN] audio export exit={rc_a} without output for {ext}", flush=True)
             except TimeoutError:
                 warnings.append({
                     "stage": "audio_export",
