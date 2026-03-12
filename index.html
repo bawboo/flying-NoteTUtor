@@ -216,7 +216,7 @@
           <div id="file-upload-container" class="flex gap-3">
 
             <!-- 左欄：直接匯入 .mscz -->
-            <div id="mscz-upload-wrapper" class="w-1/2 flex flex-col">
+            <div id="mscz-upload-wrapper" class="flex-[1.35] min-w-0 flex flex-col">
               <label class="block text-sm font-medium text-purple-300 mb-2">直接匯入 .mscz <span class="font-normal">(MuseScore 檔案)</span></label>
               <div class="flex-1 flex items-center justify-center py-2">
                 <button type="button" id="mscz-select-btn" class="w-full py-4 bg-purple-700 hover:bg-purple-600 text-white font-semibold rounded-md transition-colors text-base">選擇 .mscz</button>
@@ -227,35 +227,30 @@
             </div>
 
             <!-- 右欄：手動選擇 MusicXML + 音訊 -->
-            <div class="w-1/2 flex flex-col gap-3">
-              <p class="text-sm font-medium text-gray-500 italic">Optional — 或分別上傳以下檔案</p>
+            <div class="flex-[0.82] max-w-[18.5rem] min-w-0 flex flex-col gap-3">
+              <p class="text-sm font-medium text-white italic" data-i18n-key="optionalUploadTitle">Optional — 或分別上傳以下檔案</p>
 
               <div id="musicxml-upload-wrapper">
-                <label for="musicxml-select-btn" class="block text-sm font-medium text-gray-300 mb-1" data-i18n-key="scoreFile">樂譜檔案</label>
+                <label for="musicxml-select-btn" class="block text-sm font-medium text-gray-100 mb-1" data-i18n-key="optionalLabel">Optional</label>
                 <div class="flex items-center space-x-2">
-                  <button type="button" id="musicxml-select-btn" class="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white text-sm font-semibold rounded-md transition-colors whitespace-nowrap" data-i18n-key="selectFileBtn">選擇檔案</button>
+                  <button type="button" id="musicxml-select-btn" class="w-24 py-2 bg-gray-600 hover:bg-gray-500 text-white text-sm font-semibold rounded-md transition-colors whitespace-nowrap" data-i18n-key="selectFileBtn">選擇檔案</button>
                   <span id="musicxml-filename" class="text-sm text-gray-400 truncate" data-i18n-key="noFileSelected">未選擇任何檔案</span>
                 </div>
                 <input type="file" id="musicxml-input" accept=".xml,.musicxml,.mxl,application/vnd.recordare.musicxml+xml,text/xml" class="sr-only">
-                <p class="text-xs text-gray-500 mt-1" data-i18n-key="scoreFileDesc">請選擇一個 .musicxml 樂譜檔案 <a href="https://musescore.org/zh-hans/handbook/4/wenjiandaochu#%E5%AF%BC%E5%87%BA%E6%82%A8%E7%9A%84%E4%B9%90%E8%B0%B1" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:text-sky-300 underline" data-i18n-key="scoreFileDescLink">(可從 MuseScore 匯出)</a></p>
+                <p class="text-xs text-gray-500 mt-1" data-i18n-key="scoreFileDesc">請選擇一個 .musicxml 樂譜檔案</p>
               </div>
 
               <div id="audio-upload-wrapper">
-                <label for="audio-select-btn" class="block text-sm font-medium text-gray-300 mb-1" data-i18n-key="audioFile">音訊檔案</label>
+                <label for="audio-select-btn" class="block text-sm font-medium text-gray-100 mb-1" data-i18n-key="optionalLabel">Optional</label>
                 <div class="flex items-center space-x-2">
-                  <button type="button" id="audio-select-btn" class="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white text-sm font-semibold rounded-md transition-colors whitespace-nowrap" data-i18n-key="selectFileBtn">選擇檔案</button>
+                  <button type="button" id="audio-select-btn" class="w-24 py-2 bg-gray-600 hover:bg-gray-500 text-white text-sm font-semibold rounded-md transition-colors whitespace-nowrap" data-i18n-key="selectFileBtn">選擇檔案</button>
                   <span id="audio-filename" class="text-sm text-gray-400 truncate" data-i18n-key="noFileSelected">未選擇任何檔案</span>
                 </div>
                 <input type="file" id="audio-input" accept=".mp3,.wav,.ogg,.m4a,.aac,.flac" class="sr-only">
-                <p class="text-xs text-gray-500 mt-1" data-i18n-key="audioFileDesc">請選擇一個音檔 <a href="https://musescore.org/zh-hans/handbook/4/wenjiandaochu#%E5%AF%BC%E5%87%BA%E6%82%A8%E7%9A%84%E4%B9%90%E8%B0%B1" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:text-sky-300 underline" data-i18n-key="audioFileDescLink">(可從 MuseScore 匯出)</a></p>
+                <p class="text-xs text-gray-500 mt-1" data-i18n-key="audioFileDesc">請選擇一個音檔</p>
               </div>
             </div>
           </div><!-- end file-upload-container -->
-
-          <!-- Help Link -->
-          <div class="pt-1 text-sm">
-              <a href="#" id="musescore-help-link" class="text-sky-400 hover:text-sky-300 underline cursor-pointer" data-i18n-key="musescoreHelpLink">如何使用 MuseScore 取得這些檔案?</a>
-          </div>
 
           <div id="load-button-wrapper" class="pt-4 border-t border-gray-700">
               <button id="load-button" class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-md transition-all" data-i18n-key="loadScoreInfoBtn">
@@ -402,7 +397,6 @@
     const metronomeToggle = document.getElementById('metronome-mode-toggle');
     const loadingOverlay = document.getElementById('loading-overlay');
     const loadingText = document.getElementById('loading-text');
-    const musescoreHelpLink = document.getElementById('musescore-help-link');
     const usageHelpLink = document.getElementById('usage-help-link');
     const languageSwitcher = document.getElementById('language-switcher');
     const isMobile = /Mobi|Android/i.test(navigator.userAgent);
@@ -465,9 +459,9 @@
         'subtitle': '上傳 MusicXML樂譜檔 和音檔來播放指定小節和展示樂譜。 Produced by 竹筍 via Google AI Studio',
         'modeSwitch': '模式切換', 'comprehensive': '綜合', 'audioOnly': '純音訊', 'scoreOnly': '純樂譜',
         'controlPanel': '控制面板', 'scoreFile': '樂譜檔案', 'audioFile': '音訊檔案',
-        'scoreFileDesc': '請選擇一個 .musicxml 樂譜檔案 ', 'scoreFileDescLink': '(可從 MuseScore 匯出)',
-        'audioFileDesc': '請選擇一個音檔 ', 'audioFileDescLink': '(可從 MuseScore 匯出)',
-        'musescoreHelpLink': '如何使用 MuseScore 取得這些檔案?',
+        'optionalUploadTitle': 'Optional — 或分別上傳以下檔案', 'optionalLabel': 'Optional',
+        'scoreFileDesc': '請選擇一個 .musicxml 樂譜檔案',
+        'audioFileDesc': '請選擇一個音檔',
         'musescoreHelpTitle': '如何使用 MuseScore',
         'musescoreHelpText': '在 MuseScore 打開樂譜 &rarr; <b>文件</b> &rarr; <b>導出</b> &rarr; 格式: <br>樂譜檔案請選擇 <b>MusicXML (*.musicxml)</b><br>音訊檔案請選擇 <b>MP3</b> 或 <b>WAV</b><br>&rarr; 點擊 <b>導出</b>。<br><br>即可分別取得樂譜和音訊檔案。請把檔案放到您要使用此工具的裝置上，然後再分別上傳。',
         'usageHelpLink': '建議使用方式',
@@ -507,9 +501,9 @@
         'subtitle': 'Upload a MusicXML score and an audio file to play specific measures and display the sheet music. Produced by Bamboo via Google AI Studio',
         'modeSwitch': 'Mode Switch', 'comprehensive': 'Comprehensive', 'audioOnly': 'Audio Only', 'scoreOnly': 'Score Only',
         'controlPanel': 'Control Panel', 'scoreFile': 'Score File', 'audioFile': 'Audio File',
-        'scoreFileDesc': 'Select a .musicxml score file ', 'scoreFileDescLink': '(export from MuseScore)',
-        'audioFileDesc': 'Select an audio file ', 'audioFileDescLink': '(export from MuseScore)',
-        'musescoreHelpLink': 'How to get these files from MuseScore?',
+        'optionalUploadTitle': 'Optional — or upload these files separately', 'optionalLabel': 'Optional',
+        'scoreFileDesc': 'Select a .musicxml score file',
+        'audioFileDesc': 'Select an audio file',
         'musescoreHelpTitle': 'How to use MuseScore',
         'musescoreHelpText': "In MuseScore, open your score &rarr; <b>File</b> &rarr; <b>Export</b> &rarr; Format:<br>For the score file, choose <b>MusicXML (*.musicxml)</b><br>For the audio file, choose <b>MP3</b> or <b>WAV</b><br>&rarr; Click <b>Export</b>.<br><br>This will give you the score and audio files separately. Transfer them to the device you're using this tool on, and then upload them here.",
         'usageHelpLink': 'Recommended Usage',
@@ -549,9 +543,9 @@
         'subtitle': 'MusicXMLスコアと音声ファイルをアップロードして、特定の小節を再生し、楽譜を表示します。 Produced by Bamboo via Google AI Studio',
         'modeSwitch': 'モード切替', 'comprehensive': '総合', 'audioOnly': '音声のみ', 'scoreOnly': '楽譜のみ',
         'controlPanel': 'コントロールパネル', 'scoreFile': '楽譜ファイル', 'audioFile': '音声ファイル',
-        'scoreFileDesc': '.musicxml 楽譜ファイルを選択してください ', 'scoreFileDescLink': '（MuseScoreからエクスポート）',
-        'audioFileDesc': '音声ファイルを選択してください ', 'audioFileDescLink': '（MuseScoreからエクスポート）',
-        'musescoreHelpLink': 'MuseScoreからこれらのファイルを取得する方法は？',
+        'optionalUploadTitle': 'Optional — または以下のファイルを個別にアップロード', 'optionalLabel': 'Optional',
+        'scoreFileDesc': '.musicxml 楽譜ファイルを選択してください',
+        'audioFileDesc': '音声ファイルを選択してください',
         'musescoreHelpTitle': 'MuseScoreの使い方',
         'musescoreHelpText': 'MuseScoreで楽譜を開く &rarr; <b>ファイル</b> &rarr; <b>エクスポート</b> &rarr; 形式:<br>楽譜ファイルは<b>MusicXML (*.musicxml)</b>を選択<br>音声ファイルは<b>MP3</b>または<b>WAV</b>を選択<br>&rarr; <b>エクスポート</b>をクリック。<br><br>これで楽譜と音声ファイルが別々に取得できます。このツールを使用しているデバイスに転送し、アップロードしてください。',
         'usageHelpLink': '推奨される使用法',
@@ -615,16 +609,7 @@
                 translation = t(key);
             }
             
-            // Handle elements with children like the file descriptions
-            if (key === 'scoreFileDesc' || key === 'audioFileDesc') {
-                const linkKey = key + 'Link';
-                const linkTranslation = t(linkKey);
-                const linkElement = el.querySelector('a');
-                if (linkElement) {
-                    linkElement.innerHTML = linkTranslation;
-                }
-                el.childNodes[0].nodeValue = translation;
-            } else if (key === 'targetBPMLabel') {
+            if (key === 'targetBPMLabel') {
                  const parent = el.parentElement;
                  if (parent && parent.childNodes.length > 0) {
                     parent.childNodes[0].innerHTML = translation;
@@ -906,11 +891,6 @@
     metronomeToggle.addEventListener('change', handleMetronomeToggle);
     languageSwitcher.addEventListener('change', (e) => setLanguage(e.target.value));
     
-    musescoreHelpLink.addEventListener('click', (e) => {
-        e.preventDefault();
-        showModal(t('musescoreHelpTitle'), t('musescoreHelpText'));
-    });
-
     usageHelpLink.addEventListener('click', (e) => {
         e.preventDefault();
         showModal(t('usageHelpTitle'), t('usageHelpText'));
