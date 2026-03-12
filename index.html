@@ -1624,6 +1624,7 @@
     const msczStatus   = document.getElementById('mscz-status');
     let webMscoreRuntimePromise = null;
     let webMscoreSoundfontPromise = null;
+    let webMscoreLoadVersion = 0;
 
     msczSelectBtn.addEventListener('click', () => msczInput.click());
     msczInput.addEventListener('change', (e) => {
@@ -1673,14 +1674,19 @@
         return lines.join('\n');
     }
 
-    function loadExternalScript(src) {
+    function loadExternalScript(src, options = {}) {
+        const { forceReload = false } = options;
         return new Promise((resolve, reject) => {
             const existing = document.querySelector(`script[data-dynamic-src="${src}"]`);
             if (existing) {
+                if (forceReload) {
+                    existing.remove();
+                } else {
                 existing.addEventListener('load', resolve, { once: true });
                 existing.addEventListener('error', () => reject(new Error(`Failed to load ${src}`)), { once: true });
                 if (existing.dataset.loaded === 'true') resolve();
                 return;
+                }
             }
 
             const script = document.createElement('script');
@@ -1696,11 +1702,32 @@
         });
     }
 
-    async function getWebMscoreRuntime() {
+    function resetWebMscoreRuntime() {
+        webMscoreRuntimePromise = null;
+        webMscoreLoadVersion += 1;
+        if (window.WebMscore) {
+            try {
+                delete window.WebMscore;
+            } catch (_) {
+                window.WebMscore = undefined;
+            }
+        }
+        document.querySelectorAll('script[data-webmscore-runtime="true"]').forEach(el => el.remove());
+    }
+
+    async function getWebMscoreRuntime(forceFresh = false) {
+        if (forceFresh) {
+            resetWebMscoreRuntime();
+        }
         if (!webMscoreRuntimePromise) {
             webMscoreRuntimePromise = (async () => {
+                const runtimeSrc = `${WEBMSCORE_SCRIPT_URL}?instance=${webMscoreLoadVersion}`;
                 if (!window.WebMscore) {
-                    await loadExternalScript(WEBMSCORE_SCRIPT_URL);
+                    await loadExternalScript(runtimeSrc, { forceReload: true });
+                }
+                const loadedScript = document.querySelector(`script[data-dynamic-src="${runtimeSrc}"]`);
+                if (loadedScript) {
+                    loadedScript.dataset.webmscoreRuntime = 'true';
                 }
                 await window.WebMscore.ready;
                 if (window.WebMscore.setLogLevel) {
@@ -1722,7 +1749,7 @@
                 if (!resp.ok) {
                     throw new Error(`SoundFont download failed (HTTP ${resp.status})`);
                 }
-                return new Uint8Array(await resp.arrayBuffer());
+                return await resp.arrayBuffer();
             })().catch(err => {
                 webMscoreSoundfontPromise = null;
                 throw err;
@@ -1731,8 +1758,9 @@
         return webMscoreSoundfontPromise;
     }
 
-    async function convertMsczInBrowser(file) {
-        const WebMscore = await getWebMscoreRuntime();
+    async function convertMsczInBrowser(file, options = {}) {
+        const { forceFreshRuntime = false } = options;
+        const WebMscore = await getWebMscoreRuntime(forceFreshRuntime);
         const format = file.name.toLowerCase().endsWith('.mscx') ? 'mscx' : 'mscz';
         const fileData = new Uint8Array(await file.arrayBuffer());
         let score = null;
@@ -1744,7 +1772,8 @@
             let audioType = null;
 
             try {
-                const soundfont = await getWebMscoreSoundfont();
+                const soundfontBuffer = await getWebMscoreSoundfont();
+                const soundfont = new Uint8Array(soundfontBuffer.slice(0));
                 await score.setSoundFont(soundfont);
                 try {
                     const oggData = await score.saveAudio('ogg');
@@ -1770,6 +1799,7 @@
             if (score) {
                 score.destroy();
             }
+            resetWebMscoreRuntime();
         }
     }
 
@@ -1847,7 +1877,11 @@
 
         try {
             try {
-                const browserData = await convertMsczInBrowser(file);
+                let browserData = await convertMsczInBrowser(file, { forceFreshRuntime: true });
+                if (!browserData.audio_blob) {
+                    console.warn('Client-side conversion produced score without audio, retrying in a fresh runtime.');
+                    browserData = await convertMsczInBrowser(file, { forceFreshRuntime: true });
+                }
                 applyConvertedMsczResult(file, browserData);
             } catch (browserErr) {
                 console.warn('Client-side MSCZ conversion failed; falling back to backend.', browserErr);
