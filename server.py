@@ -87,8 +87,9 @@ def run_musescore(args: list[str]) -> tuple[int, str, str]:
     # Force Mesa software renderer (no GPU in Docker)
     env["LIBGL_ALWAYS_SOFTWARE"] = "1"
     env["QT_OPENGL"] = "software"
-    # Suppress Qt warnings about missing audio/GPU drivers
-    env["QT_LOGGING_RULES"] = "*.debug=false;qt.qpa.*=false"
+    # Qt Quick / QML software rendering — critical for QML-heavy apps (MuseScore 4)
+    env["QT_QUICK_BACKEND"] = "software"
+    env["QSG_RENDER_LOOP"] = "basic"   # single-threaded loop, safer in headless env
 
     try:
         result = subprocess.run(
@@ -168,7 +169,7 @@ def convert():
             return jsonify({"error": str(exc)}), 503
 
         if rc != 0 or not os.path.exists(xml_path):
-            excerpt = err[:500] if err else "(no stderr)"
+            excerpt = err[:2000] if err else "(no stderr)"
             return jsonify({
                 "error": f"MusicXML export failed (exit code {rc}). Details: {excerpt}"
             }), 500
