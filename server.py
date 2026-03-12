@@ -10,6 +10,7 @@ http://127.0.0.1:5000/convert automatically.
 """
 
 import base64
+import json
 import os
 import platform
 import shutil
@@ -90,6 +91,8 @@ def run_musescore(args: list[str]) -> tuple[int, str, str]:
     # Qt Quick / QML software rendering — critical for QML-heavy apps (MuseScore 4)
     env["QT_QUICK_BACKEND"] = "software"
     env["QSG_RENDER_LOOP"] = "basic"   # single-threaded loop, safer in headless env
+    # Suppress Qt/QML debug noise (keeps stderr readable for real errors)
+    env["QT_LOGGING_RULES"] = "*.debug=false;qt.qpa.*=false;qt.qml.*=false"
 
     try:
         result = subprocess.run(
@@ -166,9 +169,12 @@ def convert():
         if os.path.getsize(input_path) == 0:
             return jsonify({"error": "Uploaded file is empty or corrupt."}), 400
 
-        # ----- Export MusicXML (required) -----
+        # ----- Export MusicXML via job file (MuseScore 4 batch mode) -----
+        job_path = os.path.join(tmpdir, "job.json")
+        with open(job_path, "w") as fp:
+            json.dump([{"in": input_path, "out": xml_path}], fp)
         try:
-            rc, _, err = run_musescore(["-F", "-o", xml_path, input_path])
+            rc, _, err = run_musescore(["-j", job_path])
         except TimeoutError as exc:
             return jsonify({"error": str(exc)}), 504
         except RuntimeError as exc:
@@ -195,7 +201,10 @@ def convert():
         for ext, mime in [(".ogg", "audio/ogg"), (".wav", "audio/wav")]:
             audio_path = os.path.join(tmpdir, f"output{ext}")
             try:
-                rc_a, _, _ = run_musescore(["-F", "-o", audio_path, input_path])
+                audio_job = os.path.join(tmpdir, f"job_audio{ext}.json")
+                with open(audio_job, "w") as fjob:
+                    json.dump([{"in": input_path, "out": audio_path}], fjob)
+                rc_a, _, _ = run_musescore(["-j", audio_job])
                 if rc_a == 0 and os.path.exists(audio_path):
                     with open(audio_path, "rb") as fp:
                         audio_b64 = base64.b64encode(fp.read()).decode()
