@@ -17,16 +17,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Fetch the latest MuseScore 4 AppImage URL from GitHub, download, and extract.
 # Extraction (--appimage-extract) avoids the FUSE requirement inside Docker.
-RUN python3 -c "\
+# Shell variable captures Python stdout directly — no intermediate file needed.
+RUN MSCORE_URL=$(python3 -c "\
 import urllib.request, json; \
 data = json.load(urllib.request.urlopen('https://api.github.com/repos/musescore/MuseScore/releases/latest')); \
-url = next(a['browser_download_url'] for a in data['assets'] if 'x86_64.AppImage' in a['name']); \
-open('/tmp/url.txt','w').write(url)" \
-    && wget -q -O /tmp/mscore.AppImage "$(cat /tmp/url.txt)" \
+print(next(a['browser_download_url'] for a in data['assets'] if 'x86_64.AppImage' in a['name']))") \
+    && echo "Downloading: $MSCORE_URL" \
+    && wget -q -O /tmp/mscore.AppImage "$MSCORE_URL" \
     && chmod +x /tmp/mscore.AppImage \
     && cd /tmp && /tmp/mscore.AppImage --appimage-extract \
     && mv /tmp/squashfs-root /opt/musescore4 \
-    && rm -f /tmp/mscore.AppImage /tmp/url.txt \
+    && rm -f /tmp/mscore.AppImage \
     && ln -s /opt/musescore4/AppRun /usr/local/bin/mscore4
 
 WORKDIR /app
