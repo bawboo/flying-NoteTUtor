@@ -1628,6 +1628,48 @@
         if (file) processMsczFile(file);
     });
 
+    function clearGeneratedAudioPreview() {
+        if (audioFileUrl) {
+            URL.revokeObjectURL(audioFileUrl);
+            audioFileUrl = null;
+        }
+        audioPlayer.pause();
+        audioPlayer.removeAttribute('src');
+        audioPlayer.load();
+        audioPlayer.controls = false;
+        audioFilename.textContent = t('noFileSelected');
+        audioFilename.setAttribute('data-i18n-key', 'noFileSelected');
+    }
+
+    function formatMsczBackendError(data, status) {
+        if (!data || typeof data !== 'object') {
+            return `HTTP ${status}`;
+        }
+
+        const lines = [];
+        switch (data.category) {
+            case 'missing_shared_libraries':
+                lines.push('後端缺少 MuseScore 執行環境依賴。');
+                break;
+            case 'headless_display_setup':
+                lines.push('後端的 headless 顯示環境尚未正確啟動。');
+                break;
+            case 'filesystem_permission':
+                lines.push('後端暫存目錄或輸出檔案權限異常。');
+                break;
+            default:
+                break;
+        }
+
+        if (data.error) lines.push(data.error);
+        if (Array.isArray(data.missing_libraries) && data.missing_libraries.length) {
+            lines.push(`缺少函式庫：${data.missing_libraries.join(', ')}`);
+        }
+        if (data.hint) lines.push(`提示：${data.hint}`);
+        if (data.details) lines.push(`詳細資訊：${data.details}`);
+        return lines.join('\n');
+    }
+
     async function processMsczFile(file) {
         hideError();
         msczFilenameEl.textContent = file.name;
@@ -1652,9 +1694,17 @@
                 clearTimeout(timeoutId);
             }
 
-            const data = await resp.json();
+            const rawText = await resp.text();
+            let data = {};
+            if (rawText) {
+                try {
+                    data = JSON.parse(rawText);
+                } catch {
+                    data = { error: rawText };
+                }
+            }
             if (!resp.ok) {
-                throw new Error(data.error || `HTTP ${resp.status}`);
+                throw new Error(formatMsczBackendError(data, resp.status));
             }
 
             // Feed MusicXML into the existing score flow
@@ -1672,9 +1722,13 @@
                 audioFilename.textContent = file.name.replace(/\.mscz?$/i,
                     data.audio_type === 'audio/wav' ? '.wav' : '.ogg');
                 audioFilename.removeAttribute('data-i18n-key');
+            } else {
+                clearGeneratedAudioPreview();
             }
 
-            msczStatus.textContent = '✓ 轉換完成';
+            msczStatus.textContent = data.audio
+                ? '✓ 轉換完成'
+                : '✓ 轉換完成（樂譜成功，未產生音訊）';
             msczStatus.className = 'text-xs mt-1 text-green-400';
             updateUiState();
         } catch (err) {

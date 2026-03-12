@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: flying-notetutor
+    runtime: docker
+    plan: free
+    dockerContext: .
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeploy: true
