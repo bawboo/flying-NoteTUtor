@@ -3,32 +3,78 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>飛音帶你飛 - 阿卡練習器</title>
+  <title>fNTU A cappella Practice Webapp</title>
+  <link rel="icon" type="image/png" href="fNTU_logo.png">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.8.3/build/opensheetmusicdisplay.min.js"></script>
   <style>
+    :root {
+      color-scheme: light;
+      --fntu-blue-950: #0c2450;
+      --fntu-blue-900: #123d83;
+      --fntu-blue-800: #1e57a8;
+      --fntu-blue-700: #2f72d0;
+      --fntu-blue-500: #5b92e7;
+      --fntu-ink: #12264f;
+      --fntu-muted: #60708c;
+      --fntu-soft: #edf3fa;
+      --fntu-soft-2: #dbe7f5;
+      --fntu-panel: #f8fbff;
+      --fntu-panel-strong: #ffffff;
+      --fntu-border: #c8d8ee;
+      --fntu-border-strong: #a8c1e3;
+      --fntu-shadow: 0 24px 60px rgba(15, 42, 88, 0.16);
+      --fntu-shadow-soft: 0 14px 35px rgba(19, 61, 131, 0.12);
+      --fntu-danger: #9d2d2d;
+      --fntu-danger-bg: #fff1f1;
+      --fntu-danger-border: #f5b5b5;
+    }
     body {
       font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 18% 16%, rgba(96, 147, 227, 0.18), transparent 30%),
+        linear-gradient(135deg, #f7fbff 0%, #edf4fb 48%, #d9e6f2 100%);
+      color: var(--fntu-ink);
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(90deg, transparent 0 74%, rgba(18, 61, 131, 0.06) 74% 100%);
+      pointer-events: none;
+      z-index: -2;
+    }
+    body::after {
+      content: "";
+      position: fixed;
+      top: -12rem;
+      right: -8rem;
+      width: 28rem;
+      height: 28rem;
+      background: radial-gradient(circle, rgba(52, 119, 213, 0.24) 0%, rgba(52, 119, 213, 0) 70%);
+      pointer-events: none;
+      z-index: -1;
     }
     /* Custom styles for OSMD container and cursor */
     #score-container {
       overflow: auto;
       background-color: white;
     }
-    /* Custom scrollbar for a better look in dark mode */
+    /* Custom scrollbar */
     ::-webkit-scrollbar {
       width: 8px;
       height: 8px;
     }
     ::-webkit-scrollbar-track {
-      background: #2d3748;
+      background: #dce7f4;
     }
     ::-webkit-scrollbar-thumb {
-      background: #4a5568;
+      background: #88a7d7;
       border-radius: 4px;
     }
     ::-webkit-scrollbar-thumb:hover {
-      background: #718096;
+      background: #5f87c6;
     }
     @import url('https://rsms.me/inter/inter.css');
     /* Toggle Switch CSS */
@@ -45,19 +91,249 @@
       appearance: none;
       width: 20px;
       height: 20px;
-      background: #0ea5e9; /* sky-500 */
+      background: var(--fntu-blue-700);
       cursor: pointer;
       border-radius: 50%;
-      border: 2px solid #f8fafc; /* gray-50 */
+      border: 2px solid #f8fafc;
       margin-top: -7px; /* Center thumb on track */
     }
     input[type=range]::-moz-range-thumb {
       width: 20px;
       height: 20px;
-      background: #0ea5e9; /* sky-500 */
+      background: var(--fntu-blue-700);
       cursor: pointer;
       border-radius: 50%;
-      border: 2px solid #f8fafc; /* gray-50 */
+      border: 2px solid #f8fafc;
+    }
+    #loading-overlay {
+      background: rgba(11, 32, 70, 0.72);
+    }
+    header.fntu-hero {
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(240, 246, 252, 0.96) 100%);
+      border: 1px solid var(--fntu-border);
+      border-radius: 32px;
+      box-shadow: var(--fntu-shadow);
+      padding: 1.5rem 2rem 1.75rem;
+    }
+    header.fntu-hero::before {
+      content: "";
+      position: absolute;
+      left: -3rem;
+      top: -4rem;
+      width: 16rem;
+      height: 16rem;
+      background: radial-gradient(circle, rgba(30, 87, 168, 0.14) 0%, rgba(30, 87, 168, 0) 70%);
+    }
+    header.fntu-hero::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: min(16vw, 10rem);
+      height: 100%;
+      background: linear-gradient(180deg, #123d83 0%, #205eb8 100%);
+      border-radius: 0 32px 32px 90px;
+    }
+    .fntu-title-logo {
+      position: relative;
+      z-index: 1;
+      display: block;
+      width: min(100%, 780px);
+      margin: 0 auto;
+    }
+    .fntu-subtitle {
+      position: relative;
+      z-index: 1;
+      max-width: 42rem;
+      margin: 1.25rem auto 0;
+      color: var(--fntu-muted);
+      font-size: 1rem;
+      line-height: 1.75;
+    }
+    #error-message {
+      background: var(--fntu-danger-bg) !important;
+      color: var(--fntu-danger) !important;
+      border: 1px solid var(--fntu-danger-border);
+      border-left-color: #de5c5c !important;
+      box-shadow: var(--fntu-shadow-soft);
+    }
+    #control-panel {
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(241, 246, 252, 0.96));
+      border: 1px solid var(--fntu-border);
+      box-shadow: var(--fntu-shadow);
+      border-radius: 28px;
+      color: var(--fntu-ink);
+    }
+    #control-panel .border-gray-700,
+    #control-panel .border-gray-600 {
+      border-color: var(--fntu-border) !important;
+    }
+    #control-panel h2,
+    #modal-container h3 {
+      color: var(--fntu-blue-900) !important;
+    }
+    #control-panel .text-sky-300,
+    #control-panel .text-sky-400,
+    #score-stage .text-sky-400 {
+      color: var(--fntu-blue-800) !important;
+    }
+    #control-panel .text-gray-100,
+    #control-panel .text-gray-300,
+    #control-panel .text-gray-400,
+    #control-panel .text-gray-500 {
+      color: var(--fntu-muted) !important;
+    }
+    #control-panel label:not(.toggle-label) {
+      color: var(--fntu-ink);
+    }
+    #usage-help-link {
+      color: var(--fntu-blue-800) !important;
+    }
+    #usage-help-link:hover {
+      color: var(--fntu-blue-900) !important;
+    }
+    #language-switcher,
+    #control-panel select,
+    #control-panel input[type="number"] {
+      background: var(--fntu-panel-strong) !important;
+      border-color: var(--fntu-border-strong) !important;
+      color: var(--fntu-ink) !important;
+      box-shadow: inset 0 1px 2px rgba(12, 36, 80, 0.05);
+    }
+    #control-panel input[type="range"] {
+      background: #cfddf0 !important;
+    }
+    .toggle-checkbox:checked {
+      border-color: var(--fntu-blue-700);
+    }
+    .toggle-checkbox:checked + .toggle-label {
+      background-color: var(--fntu-blue-700);
+    }
+    .toggle-label {
+      background: #9bb4d8 !important;
+    }
+    #control-panel .mode-button {
+      border: 1px solid var(--fntu-border-strong);
+      box-shadow: var(--fntu-shadow-soft);
+    }
+    #control-panel .mode-button.bg-green-600 {
+      background: linear-gradient(135deg, var(--fntu-blue-700), var(--fntu-blue-900)) !important;
+      color: #ffffff !important;
+      border-color: transparent !important;
+    }
+    #control-panel .mode-button.bg-gray-600 {
+      background: linear-gradient(180deg, #dde6f0, #c8d5e4) !important;
+      color: var(--fntu-ink) !important;
+    }
+    #mscz-upload-wrapper {
+      background: linear-gradient(180deg, #f7fbff, #edf4fb);
+      border: 1px solid var(--fntu-border);
+      border-radius: 22px;
+      padding: 1rem 1rem 0.875rem;
+      box-shadow: var(--fntu-shadow-soft);
+    }
+    #mscz-upload-wrapper > label {
+      color: var(--fntu-blue-900) !important;
+    }
+    #mscz-upload-wrapper > label span {
+      color: var(--fntu-muted) !important;
+    }
+    #mscz-filename {
+      color: var(--fntu-muted) !important;
+    }
+    #mscz-select-btn {
+      background: linear-gradient(135deg, var(--fntu-blue-700), var(--fntu-blue-900)) !important;
+      box-shadow: 0 16px 28px rgba(18, 61, 131, 0.2);
+    }
+    #mscz-select-btn:hover {
+      filter: brightness(1.05);
+    }
+    #optional-upload-panel {
+      background: linear-gradient(180deg, var(--fntu-blue-900), #1b55a5);
+      border-radius: 22px;
+      padding: 1rem 0.95rem;
+      box-shadow: 0 18px 38px rgba(12, 36, 80, 0.24);
+    }
+    #optional-upload-panel .text-gray-100 {
+      color: rgba(255, 255, 255, 0.92) !important;
+    }
+    #optional-upload-panel label {
+      color: rgba(255, 255, 255, 0.92) !important;
+    }
+    #optional-upload-panel .text-gray-400,
+    #optional-upload-panel .text-gray-500 {
+      color: rgba(225, 235, 248, 0.75) !important;
+    }
+    #optional-upload-panel [data-i18n-key="optionalUploadTitle"] {
+      color: #ffffff !important;
+      letter-spacing: 0.02em;
+    }
+    #musicxml-select-btn,
+    #audio-select-btn,
+    #reset-button {
+      background: linear-gradient(180deg, #e8edf3, #cfd8e4) !important;
+      color: var(--fntu-ink) !important;
+      border: 1px solid rgba(255, 255, 255, 0.24);
+    }
+    #musicxml-select-btn:hover,
+    #audio-select-btn:hover,
+    #reset-button:hover {
+      filter: brightness(1.02);
+    }
+    #load-button,
+    #generate-button,
+    #play-pause-button {
+      background: linear-gradient(135deg, var(--fntu-blue-700), var(--fntu-blue-900)) !important;
+      box-shadow: 0 16px 28px rgba(18, 61, 131, 0.18);
+    }
+    #load-button:hover,
+    #generate-button:hover,
+    #play-pause-button:hover {
+      filter: brightness(1.05);
+    }
+    #load-button:disabled,
+    #generate-button:disabled,
+    #play-pause-button:disabled,
+    #reset-button:disabled {
+      background: linear-gradient(180deg, #d6deea, #c0cada) !important;
+      color: #6f7f99 !important;
+      box-shadow: none;
+    }
+    #score-stage {
+      padding-top: 0.75rem;
+    }
+    #score-container {
+      background: #ffffff;
+      border-color: var(--fntu-blue-900) !important;
+      border-radius: 28px 28px 0 0;
+      box-shadow: var(--fntu-shadow);
+    }
+    #score-container > div {
+      color: var(--fntu-muted) !important;
+    }
+    #resize-handle {
+      background: linear-gradient(90deg, var(--fntu-blue-900), var(--fntu-blue-700)) !important;
+      box-shadow: 0 16px 28px rgba(18, 61, 131, 0.14);
+    }
+    #modal-overlay {
+      background: rgba(11, 32, 70, 0.55) !important;
+    }
+    #modal-container {
+      background: linear-gradient(180deg, #ffffff, #eef4fb) !important;
+      color: var(--fntu-ink) !important;
+      border: 1px solid var(--fntu-border);
+      box-shadow: var(--fntu-shadow);
+    }
+    #modal-container .border-gray-600 {
+      border-color: var(--fntu-border) !important;
+    }
+    #modal-container .text-gray-400 {
+      color: var(--fntu-muted) !important;
+    }
+    #modal-container a {
+      color: var(--fntu-blue-800) !important;
     }
     /* Styles for mobile auto-scaling */
     #app-wrapper.mobile-scaled {
@@ -125,6 +401,13 @@
     #app-wrapper.mobile-scaled header p {
         font-size: 1.2rem;
     }
+    #app-wrapper.mobile-scaled .fntu-title-logo {
+        width: 92%;
+        max-width: none;
+    }
+    #app-wrapper.mobile-scaled .fntu-subtitle {
+        font-size: 1.1rem;
+    }
     #app-wrapper.mobile-scaled h2 {
         font-size: 1.8rem; /* 20% larger than text-2xl */
     }
@@ -159,7 +442,7 @@
     }
   </style>
 </head>
-<body class="bg-gray-900 text-gray-200 antialiased">
+<body class="antialiased">
   <div id="loading-overlay" class="hidden fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center" aria-live="polite" aria-busy="true">
     <div class="text-center text-white">
       <svg class="animate-spin h-12 w-12 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -172,14 +455,9 @@
 
   <div id="app-wrapper">
     <div class="container mx-auto p-4 md:p-8 max-w-7xl">
-      <header class="text-center mb-8">
-        <h1 class="text-4xl md:text-5xl font-extrabold text-white tracking-tight">
-          飛音帶你飛 - <span class="text-sky-400">阿卡</span>練習器
-        </h1>
-        <p class="text-xl text-gray-300 tracking-wider mt-1">
-          Flying <span class="text-sky-400">N</span>ote<span class="text-sky-400">T</span><span class="text-sky-400">U</span>tor
-        </p>
-        <p class="text-gray-400 mt-4" data-i18n-key="subtitle">上傳 MusicXML樂譜檔 和音檔來播放指定小節和展示樂譜。 Produced by 竹筍 via Google AI Studio</p>
+      <header class="fntu-hero text-center mb-8">
+        <img src="fNTU_title.png" alt="fNTU A cappella Practice Webapp" class="fntu-title-logo">
+        <p class="fntu-subtitle" data-i18n-key="subtitle">上傳 MusicXML樂譜檔 和音檔來播放指定小節和展示樂譜。 Produced by 竹筍 via Google AI Studio</p>
       </header>
 
       <div id="error-message" class="hidden bg-red-800 text-red-100 border-l-4 border-red-500 p-4 rounded-md mb-6" role="alert">
@@ -189,7 +467,7 @@
 
       <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <!-- Control Panel -->
-        <div class="lg:col-span-1 bg-gray-800 p-6 rounded-lg shadow-lg space-y-6 h-fit">
+        <div id="control-panel" class="lg:col-span-1 p-6 rounded-lg shadow-lg space-y-6 h-fit">
           <!-- Mode Switcher -->
           <div>
             <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
@@ -227,7 +505,7 @@
             </div>
 
             <!-- 右欄：手動選擇 MusicXML + 音訊 -->
-            <div class="flex-[0.82] max-w-[18.5rem] min-w-0 flex flex-col gap-3">
+            <div id="optional-upload-panel" class="flex-[0.82] max-w-[18.5rem] min-w-0 flex flex-col gap-3">
               <p class="text-sm font-medium text-white italic" data-i18n-key="optionalUploadTitle">Optional — 或分別上傳以下檔案</p>
 
               <div id="musicxml-upload-wrapper">
@@ -332,7 +610,7 @@
         </div>
 
         <!-- Score and Message Display -->
-        <div class="lg:col-span-2 relative flex flex-col">
+        <div id="score-stage" class="lg:col-span-2 relative flex flex-col">
             <div id="current-measure-display-top-wrapper" class="absolute top-0 -left-14 text-center hidden">
                 <span class="text-xs text-gray-400" data-i18n-key="currentMeasureLabel">當前</span>
                 <span id="current-measure-display-top" class="text-2xl font-bold text-sky-400 leading-none">--</span>
