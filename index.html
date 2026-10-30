@@ -58,8 +58,52 @@
     }
     /* Custom styles for OSMD container and cursor */
     #score-container {
+      position: relative;
       overflow: auto;
       background-color: white;
+    }
+    /* Playback cursor: follows the audio, drag it (or click the score) to set where playback resumes */
+    #playback-cursor {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 18px;
+      margin-left: -9px;
+      display: none;
+      cursor: ew-resize;
+      touch-action: none;
+      user-select: none;
+      z-index: 5;
+    }
+    #playback-cursor::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 3px;
+      transform: translateX(-50%);
+      background: rgba(47, 114, 208, 0.8);
+      border-radius: 2px;
+      box-shadow: 0 0 6px rgba(47, 114, 208, 0.45);
+    }
+    #playback-cursor::after {
+      content: "";
+      position: absolute;
+      top: -6px;
+      left: 50%;
+      width: 12px;
+      height: 12px;
+      transform: translateX(-50%);
+      background: var(--fntu-blue-700);
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+      box-shadow: 0 1px 4px rgba(18, 61, 131, 0.4);
+    }
+    #playback-cursor:hover::before,
+    #playback-cursor.is-dragging::before {
+      width: 5px;
+      background: rgba(47, 114, 208, 0.95);
     }
     /* Custom scrollbar */
     ::-webkit-scrollbar {
@@ -713,8 +757,8 @@
     let audioFileUrl = null;
     let osmd = null;
     let isPlaying = false; // For audio file
-    let timePerBeat = 0;
     let playbackEndTime = 0;
+    let measureTimeline = null; // Start time and length (seconds at score tempo) of every measure in the full score
     let originalTimeSignature = null;
     let isMetronomeMode = false;
     let isMetronomePlaying = false;
@@ -750,7 +794,8 @@
                 <li>一個是 <strong>你的聲部音量單獨放大的音檔</strong> - 用來一開始不熟悉的時候跟著自己聲部練習。</li>
                 <li>另一個是 <strong>你的聲部"靜音"的檔案</strong> - 用來在你熟悉之後在沒有輔助的情況下練習。</li>
             </ul>
-            <p>另外，音檔用甚麼軟體合成都是ok的，只要是同一份mscz/midi/musicxml檔案合成出來的音檔都可以，或如果有辦法完全對拍的錄音檔也可，重點是要跟原本的樂譜設定的<strong>"速度完全一致"</strong>就沒問題了。(放沒對齊的音檔也會有聲音，但就失去這個工具使用的意義。)</p>`,
+            <p>另外，音檔用甚麼軟體合成都是ok的，只要是同一份mscz/midi/musicxml檔案合成出來的音檔都可以，或如果有辦法完全對拍的錄音檔也可，重點是要跟原本的樂譜設定的<strong>"速度完全一致"</strong>就沒問題了。(放沒對齊的音檔也會有聲音，但就失去這個工具使用的意義。)</p>
+            <p class="mt-4">播放時樂譜上會有一條<strong>藍色追蹤線</strong>跟著目前的位置前進。點一下樂譜上的任何位置，或拖曳藍色線，就能設定接下來要從哪裡開始播放。</p>`,
         'loadScoreInfoBtn': '讀取樂譜資訊',
         'metronomeMode': '節拍器模式', 'metronomeModeDesc': '僅播放目標BPM的節拍聲',
         'partSelectLabel': '聲部', 'originalBPMLabel': '樂譜BPM(原本拍速)', 'targetBPMLabel': '目標BPM: ',
@@ -792,7 +837,8 @@
                 <li>One where <strong>your part's volume is increased</strong> - to practice along with your part when you are not yet familiar with it.</li>
                 <li>Another where <strong>your part is muted</strong> - to practice without assistance once you are familiar with it.</li>
             </ul>
-            <p>Additionally, any software can be used to synthesize the audio, as long as it's generated from the same mscz/midi/musicxml file. A perfectly aligned recording would also work. The key is that it must be <strong>"perfectly consistent with the original score's tempo"</strong>. (Using a misaligned audio file will still produce sound, but it defeats the purpose of this tool.)</p>`,
+            <p>Additionally, any software can be used to synthesize the audio, as long as it's generated from the same mscz/midi/musicxml file. A perfectly aligned recording would also work. The key is that it must be <strong>"perfectly consistent with the original score's tempo"</strong>. (Using a misaligned audio file will still produce sound, but it defeats the purpose of this tool.)</p>
+            <p class="mt-4">During playback, a <strong>blue tracking line</strong> follows the current position on the score. Click anywhere on the score, or drag the blue line, to choose where playback continues from.</p>`,
         'loadScoreInfoBtn': 'Load Score Info',
         'metronomeMode': 'Metronome Mode', 'metronomeModeDesc': 'Plays only metronome clicks at target BPM',
         'partSelectLabel': 'Part', 'originalBPMLabel': 'Original BPM', 'targetBPMLabel': 'Target BPM: ',
@@ -834,7 +880,8 @@
                 <li>一つは、<strong>自分のパートの音量を上げたファイル</strong>です。まだ慣れていないときに、自分のパートと一緒に練習するために使用します。</li>
                 <li>もう一つは、<strong>自分のパートを「ミュート」したファイル</strong>です。慣れた後に、補助なしで練習するために使用します。</li>
             </ul>
-            <p>また、音声の合成にはどのソフトウェアを使用しても構いませんが、同じmscz/midi/musicxmlファイルから生成されていることが条件です。完全にタイミングが合った録音でも機能します。重要なのは、元の楽譜で設定された<strong>「テンポと完全に一致」</strong>していることです。（タイミングがずれた音声ファイルを使用しても音は出ますが、このツールの意味が失われます。）</p>`,
+            <p>また、音声の合成にはどのソフトウェアを使用しても構いませんが、同じmscz/midi/musicxmlファイルから生成されていることが条件です。完全にタイミングが合った録音でも機能します。重要なのは、元の楽譜で設定された<strong>「テンポと完全に一致」</strong>していることです。（タイミングがずれた音声ファイルを使用しても音は出ますが、このツールの意味が失われます。）</p>
+            <p class="mt-4">再生中は、<strong>青い追跡ライン</strong>が楽譜上の現在位置に合わせて進みます。楽譜の任意の位置をクリックするか、青いラインをドラッグすると、次に再生を始める位置を設定できます。</p>`,
         'loadScoreInfoBtn': '楽譜情報を読み込む',
         'metronomeMode': 'メトロノームモード', 'metronomeModeDesc': '目標BPMのクリック音のみ再生',
         'partSelectLabel': 'パート', 'originalBPMLabel': '元のBPM', 'targetBPMLabel': '目標BPM: ',
@@ -1083,6 +1130,8 @@
 
         const isResetEnabled = audioFileLoaded && !isMetronomeMode && currentMode !== 'score';
         resetButton.disabled = !isResetEnabled;
+
+        updatePlaybackCursor();
     }
 
 
@@ -1211,6 +1260,7 @@
                 targetBpmDisplay.textContent = value;
             }
         }
+        updatePlaybackCursor();
     });
 
 
@@ -1394,6 +1444,7 @@
             });
             
             originalTimeSignature = osmd.sheet.SourceMeasures[0]?.ActiveTimeSignature;
+            measureTimeline = buildMeasureTimeline(osmd.sheet, musicXmlFileContent);
 
             const firstMeasure = osmd.sheet.SourceMeasures[0];
             if(firstMeasure && firstMeasure.TempoInBPM) {
@@ -1417,6 +1468,7 @@
         } catch (e) {
             showError("error.parseError", e.message);
             musicXmlFileContent = null;
+            measureTimeline = null;
             showScorePlaceholder("placeholder.loadError");
         } finally {
             hideLoader();
@@ -1628,9 +1680,12 @@
             await osmd.load(filteredXml);
             scoreContainer.innerHTML = '';
             osmd.render();
+            renderedStartMeasure = startMeasure;
+            cursorLayout = null;
             if (audioFileUrl) {
-                handleReset(); 
+                handleReset();
             }
+            updatePlaybackCursor();
         } catch (e) {
             showError("error.renderError", e.message);
             showScorePlaceholder("placeholder.renderError");
@@ -1675,10 +1730,9 @@
             updateCurrentMeasureDisplay(null);
             return;
         }
-        
-        let beatsPerMeasure = originalTimeSignature ? originalTimeSignature.numerator : 4;
-        const startTime = (startMeasure - 1) * beatsPerMeasure * (60 / originalBpm);
-        audioPlayer.currentTime = startTime;
+
+        const endMeasure = parseInt(endMeasureInput.value, 10);
+        audioPlayer.currentTime = getPlaybackRange(startMeasure, endMeasure >= startMeasure ? endMeasure : startMeasure).start;
         updateCurrentMeasureDisplay(startMeasure);
     }
 
@@ -1688,17 +1742,447 @@
             handleReset();
         }
 
+        const currentMeasure = timeToMeasure(audioPlayer.currentTime);
+        if (currentMeasure !== null) {
+            updateCurrentMeasureDisplay(currentMeasure);
+        }
+    }
+
+    // --- Score Timeline ---
+    // Steps are the measures in the order the audio plays them (repeats and jumps unrolled), timed with
+    // each measure's real length and tempo, so time-signature and tempo changes stay in sync with the audio.
+    function buildMeasureTimeline(sheet, xmlString) {
+        const baseTempo = sheet.SourceMeasures[0]?.TempoInBPM || 120;
+        let tempo = baseTempo;
+        const durations = sheet.SourceMeasures.map(sourceMeasure => {
+            if (sourceMeasure.TempoInBPM > 0) tempo = sourceMeasure.TempoInBPM;
+            // Duration is in whole notes; tempo is in quarter notes per minute
+            return sourceMeasure.Duration.RealValue * 4 * 60 / tempo;
+        });
+        let start = 0;
+        const steps = getPlaybackOrder(xmlString, durations.length).map(measure => {
+            const step = { measure, start, duration: durations[measure] };
+            start += step.duration;
+            return step;
+        });
+        return { baseTempo, measureCount: durations.length, steps };
+    }
+
+    function parseEndingNumbers(text) {
+        const numbers = [];
+        (text || '').split(/[,\s]+/).forEach(token => {
+            const [from, to] = token.split('-').map(n => parseInt(n, 10));
+            if (isNaN(from)) return;
+            for (let n = from; n <= (isNaN(to) ? from : to); n++) numbers.push(n);
+        });
+        return numbers;
+    }
+
+    // 0-based measure indices in the order the audio plays them. Follows repeats, 1st/2nd endings,
+    // D.C./D.S., Fine and To Coda the way MuseScore plays them by default (no repeats after a jump).
+    function getPlaybackOrder(xmlString, measureCount) {
+        const linearOrder = Array.from({ length: measureCount }, (_, i) => i);
+        const xmlDoc = xmlString ? new DOMParser().parseFromString(xmlString, 'text/xml') : null;
+        const parts = xmlDoc ? Array.from(xmlDoc.querySelectorAll('score-partwise > part')) : [];
+        if (!parts.length || parts[0].querySelectorAll(':scope > measure').length !== measureCount) return linearOrder;
+
+        const info = linearOrder.map(() => ({
+            forward: false, backward: 0, endingNumbers: null, endingStop: false,
+            segno: null, coda: null, toCoda: null, dalSegno: null, daCapo: false, fine: false
+        }));
+        parts.forEach(part => part.querySelectorAll(':scope > measure').forEach((measure, i) => {
+            const m = info[i];
+            if (!m) return;
+            measure.querySelectorAll('barline').forEach(barline => {
+                const direction = barline.querySelector('repeat')?.getAttribute('direction');
+                if (direction === 'forward') m.forward = true;
+                if (direction === 'backward') m.backward = parseInt(barline.querySelector('repeat').getAttribute('times'), 10) || 2;
+                const ending = barline.querySelector('ending');
+                if (ending?.getAttribute('type') === 'start') m.endingNumbers = parseEndingNumbers(ending.getAttribute('number'));
+                else if (ending) m.endingStop = true;
+            });
+            measure.querySelectorAll('sound').forEach(sound => {
+                if (sound.hasAttribute('segno')) m.segno = sound.getAttribute('segno');
+                if (sound.hasAttribute('coda')) m.coda = sound.getAttribute('coda');
+                if (sound.hasAttribute('tocoda')) m.toCoda = sound.getAttribute('tocoda');
+                if (sound.hasAttribute('dalsegno')) m.dalSegno = sound.getAttribute('dalsegno');
+                if (sound.getAttribute('dacapo') === 'yes') m.daCapo = true;
+                if (sound.hasAttribute('fine')) m.fine = true;
+            });
+        }));
+
+        // Ending (volta) blocks, grouped with the endings right after them
+        const endingBlocks = new Map();
+        const endingBlockEnds = new Set();
+        let group = null;
+        for (let i = 0; i < measureCount; i++) {
+            if (!info[i].endingNumbers) continue;
+            let end = i;
+            while (end < measureCount - 1 && !info[end].endingStop && !info[end + 1].endingNumbers) end++;
+            if (!group || group[group.length - 1].end !== i - 1) group = [];
+            const block = { end, numbers: info[i].endingNumbers, group };
+            group.push(block);
+            endingBlocks.set(i, block);
+            endingBlockEnds.add(end);
+            i = end;
+        }
+        // The last ending of a group also plays when no ending lists this pass (e.g. after a D.C.)
+        const playsEnding = (block, pass) => block.numbers.includes(pass)
+            || (block === block.group[block.group.length - 1] && !block.group.some(b => b.numbers.includes(pass)));
+        const findMarker = (key, name) => {
+            const named = info.findIndex(m => m[key] !== null && m[key] === name);
+            return named !== -1 ? named : info.findIndex(m => m[key] !== null);
+        };
+
+        const FINAL_PASS = Infinity;
+        const order = [];
+        const jumpsTaken = new Set();
+        let afterJump = false;
+        let repeatStart = 0;
+        let pass = 1;
+        let i = 0;
+        while (i < measureCount && order.length < measureCount * 20) {
+            const m = info[i];
+            if (m.forward && i !== repeatStart) {
+                repeatStart = i;
+                pass = afterJump ? FINAL_PASS : 1;
+            }
+            const block = endingBlocks.get(i);
+            if (block && !playsEnding(block, pass)) {
+                i = block.end + 1;
+                continue;
+            }
+            order.push(i);
+            if (m.backward && pass < m.backward) {
+                pass++;
+                i = repeatStart;
+                continue;
+            }
+            if (m.backward || endingBlockEnds.has(i)) {
+                repeatStart = i + 1;
+                pass = afterJump ? FINAL_PASS : 1;
+            }
+            if (afterJump && m.fine) break;
+            const codaTarget = afterJump && m.toCoda !== null ? findMarker('coda', m.toCoda) : -1;
+            if (codaTarget !== -1) {
+                i = codaTarget;
+                continue;
+            }
+            if ((m.daCapo || m.dalSegno !== null) && !jumpsTaken.has(i)) {
+                const target = m.daCapo ? 0 : findMarker('segno', m.dalSegno);
+                if (target !== -1) {
+                    jumpsTaken.add(i);
+                    afterJump = true;
+                    repeatStart = target;
+                    pass = FINAL_PASS;
+                    i = target;
+                    continue;
+                }
+            }
+            i++;
+        }
+        return order.length ? order : linearOrder;
+    }
+
+    // The original BPM input rescales the whole score tempo map
+    function getTimelineScale() {
         const originalBpm = parseFloat(originalBpmInput.value);
-        if (originalBpm > 0 && originalTimeSignature) {
-            const beatsPerMeasure = originalTimeSignature.numerator;
-            const secondsPerBeat = 60 / originalBpm;
-            const secondsPerMeasure = beatsPerMeasure * secondsPerBeat;
-            if (secondsPerMeasure > 0) {
-                const currentMeasure = Math.floor(audioPlayer.currentTime / secondsPerMeasure) + 1;
-                updateCurrentMeasureDisplay(currentMeasure);
+        return originalBpm > 0 ? measureTimeline.baseTempo / originalBpm : 1;
+    }
+
+    // Used before the score info is loaded: assumes a constant tempo and time signature, no repeats
+    function linearMeasureToTime(measure) {
+        const originalBpm = parseFloat(originalBpmInput.value);
+        const beatsPerMeasure = originalTimeSignature ? originalTimeSignature.numerator : 4;
+        return (measure - 1) * beatsPerMeasure * (60 / originalBpm);
+    }
+
+    function stepTime(step, fraction) {
+        return (step.start + step.duration * fraction) * getTimelineScale();
+    }
+
+    // Every pass through a 0-based measure; one that never plays (e.g. an unused ending) uses the next one that does
+    function stepsForMeasure(index) {
+        const { steps, measureCount } = measureTimeline;
+        for (let i = Math.max(index, 0); i < measureCount; i++) {
+            const found = steps.filter(step => step.measure === i);
+            if (found.length) return found;
+        }
+        return [steps[steps.length - 1]];
+    }
+
+    // Audio time span for playing measures start..end (1-based): from the first pass through the start
+    // measure whose run stays inside start..end until it reaches the end measure, to the last pass
+    // through the end measure before the performance leaves start..end
+    function getPlaybackRange(startMeasure, endMeasure) {
+        if (!measureTimeline) {
+            return { start: linearMeasureToTime(startMeasure), end: linearMeasureToTime(endMeasure + 1) };
+        }
+        const { steps } = measureTimeline;
+        const startSteps = stepsForMeasure(startMeasure - 1);
+        const endSteps = stepsForMeasure(endMeasure - 1);
+        const startIndex = startSteps[0].measure;
+        const endIndex = Math.max(endSteps[0].measure, startIndex);
+        for (const startStep of startSteps) {
+            let lastEndStep = null;
+            for (let k = steps.indexOf(startStep); k < steps.length; k++) {
+                if (steps[k].measure < startIndex || steps[k].measure > endIndex) break;
+                if (steps[k].measure === endIndex) lastEndStep = steps[k];
+            }
+            if (lastEndStep) return { start: stepTime(startStep, 0), end: stepTime(lastEndStep, 1) };
+        }
+        // The performance never goes straight from start to end: take the first pass of each
+        const startStep = startSteps[0];
+        const endStep = endSteps.find(step => step.start >= startStep.start) || steps[steps.length - 1];
+        return { start: stepTime(startStep, 0), end: stepTime(endStep, 1) };
+    }
+
+    // Audio time at a 1-based, fractional measure position. A measure that plays more than once resolves
+    // to the pass nearest the current time, preferring passes inside the selected playback range.
+    function measurePositionToTime(measure) {
+        if (!measureTimeline) return linearMeasureToTime(measure);
+        const index = Math.floor(measure) - 1;
+        const fraction = measure - 1 - index;
+        const times = stepsForMeasure(index).map(step => stepTime(step, fraction));
+        const startMeasure = parseInt(startMeasureInput.value, 10);
+        const endMeasure = parseInt(endMeasureInput.value, 10);
+        let candidates = times;
+        if (startMeasure >= 1 && endMeasure >= startMeasure) {
+            const range = getPlaybackRange(startMeasure, endMeasure);
+            const inRange = times.filter(time => time >= range.start && time < range.end);
+            if (inRange.length) candidates = inRange;
+        }
+        const now = audioPlayer.currentTime;
+        return candidates.reduce((best, time) => Math.abs(time - now) < Math.abs(best - now) ? time : best);
+    }
+
+    // 1-based, fractional measure position at an audio time; null when the score info isn't loaded
+    function timeToMeasure(seconds) {
+        if (!measureTimeline) return null;
+        const { steps } = measureTimeline;
+        const scoreTime = seconds / getTimelineScale() + 1e-6; // tolerate float rounding exactly at a barline
+        const step = steps.find(s => scoreTime < s.start + s.duration) || steps[steps.length - 1];
+        const fraction = step.duration > 0 ? Math.min(Math.max((scoreTime - step.start) / step.duration, 0), 1) : 0;
+        return step.measure + 1 + fraction;
+    }
+
+    // --- Playback Cursor ---
+    const OSMD_UNIT_PX = 10; // OSMD layout unit in pixels at zoom 1
+    const CURSOR_PADDING = 2; // OSMD units above and below the staves
+    let cursorLayout = null;
+    let renderedStartMeasure = 1;
+    let isCursorDragging = false;
+    let cursorDragPosition = null;
+    let cursorAnimationFrame = null;
+    const playbackCursor = document.createElement('div');
+    playbackCursor.id = 'playback-cursor';
+
+    // Positions are 0-based measure indices of the rendered selection plus the fraction through the measure
+    function buildCursorLayout(svg) {
+        const measures = [];
+        (osmd.GraphicSheet?.MeasureList || []).forEach((staffMeasures, index) => {
+            const graphicMeasures = (staffMeasures || []).filter(Boolean);
+            if (!graphicMeasures.length) {
+                // Drawn as part of the previous multi-measure rest
+                const previous = measures[measures.length - 1];
+                if (previous) previous.end = index + 1;
+                return;
+            }
+            const first = graphicMeasures[0];
+            const box = first.PositionAndShape;
+            const duration = first.parentSourceMeasure.Duration.RealValue;
+            const entryX = new Map();
+            graphicMeasures.forEach(measure => measure.staffEntries.forEach(entry => {
+                const timestamp = entry.relInMeasureTimestamp.RealValue;
+                const x = entry.PositionAndShape.AbsolutePosition.x;
+                entryX.set(timestamp, Math.min(x, entryX.get(timestamp) ?? Infinity));
+            }));
+            const points = [...entryX]
+                .map(([timestamp, x]) => ({ pos: index + (duration > 0 ? timestamp / duration : 0), x }))
+                .sort((a, b) => a.pos - b.pos);
+            if (!points.length || points[0].pos > index) {
+                points.unshift({ pos: index, x: box.AbsolutePosition.x + first.beginInstructionsWidth });
+            }
+            const staffTops = graphicMeasures.map(measure => measure.PositionAndShape.AbsolutePosition.y);
+            measures.push({
+                start: index,
+                end: index + 1,
+                system: first.ParentMusicSystem,
+                left: box.AbsolutePosition.x,
+                right: box.AbsolutePosition.x + box.Size.width,
+                top: Math.min(...staffTops) - CURSOR_PADDING,
+                bottom: Math.max(...staffTops) + 4 + CURSOR_PADDING, // a staff is 4 units tall
+                points
+            });
+        });
+        // End each measure at the next note on the same line, or at its barline
+        measures.forEach((measure, i) => {
+            const next = measures[i + 1];
+            const endX = next && next.system === measure.system ? next.points[0].x : measure.right;
+            measure.points.push({ pos: measure.end, x: Math.max(endX, measure.points[measure.points.length - 1].x) });
+        });
+        return { svg, width: svg.getAttribute('width'), measures };
+    }
+
+    // Rebuilt whenever OSMD redraws the score (e.g. autoResize)
+    function getCursorLayout() {
+        const svg = scoreContainer.querySelector('svg');
+        if (!svg) return null;
+        if (!cursorLayout || cursorLayout.svg !== svg || cursorLayout.width !== svg.getAttribute('width')) {
+            cursorLayout = buildCursorLayout(svg);
+        }
+        return cursorLayout.measures.length ? cursorLayout : null;
+    }
+
+    function getLayoutOffset(layout) {
+        const canvas = layout.svg.parentElement;
+        return { scale: OSMD_UNIT_PX * osmd.zoom, left: canvas.offsetLeft, top: canvas.offsetTop };
+    }
+
+    function isCursorActive() {
+        return currentMode === 'comprehensive' && !!audioFileUrl && !isMetronomeMode && !!measureTimeline;
+    }
+
+    function hidePlaybackCursor() {
+        playbackCursor.style.display = 'none';
+    }
+
+    function drawPlaybackCursor(layout, pos, followScroll) {
+        const last = layout.measures[layout.measures.length - 1];
+        const measure = layout.measures.find(m => pos < m.end) || (pos <= last.end ? last : null);
+        if (!measure || pos < layout.measures[0].start) {
+            hidePlaybackCursor();
+            return;
+        }
+
+        const { points } = measure;
+        let i = 0;
+        while (i < points.length - 2 && points[i + 1].pos <= pos) i++;
+        const a = points[i];
+        const b = points[i + 1];
+        const ratio = b.pos > a.pos ? Math.min(Math.max((pos - a.pos) / (b.pos - a.pos), 0), 1) : 0;
+        const x = a.x + (b.x - a.x) * ratio;
+
+        const { scale, left, top } = getLayoutOffset(layout);
+        const cursorX = left + x * scale;
+        const cursorY = top + measure.top * scale;
+        const cursorHeight = (measure.bottom - measure.top) * scale;
+        if (!playbackCursor.isConnected) scoreContainer.appendChild(playbackCursor);
+        playbackCursor.style.display = 'block';
+        playbackCursor.style.height = `${cursorHeight}px`;
+        playbackCursor.style.transform = `translate(${cursorX}px, ${cursorY}px)`;
+
+        if (followScroll) {
+            const viewTop = scoreContainer.scrollTop;
+            if (cursorY < viewTop || cursorY + cursorHeight > viewTop + scoreContainer.clientHeight) {
+                scoreContainer.scrollTop = cursorY - 16;
+            }
+            const viewLeft = scoreContainer.scrollLeft;
+            if (cursorX < viewLeft || cursorX > viewLeft + scoreContainer.clientWidth) {
+                scoreContainer.scrollLeft = cursorX - 32;
             }
         }
     }
+
+    function updatePlaybackCursor() {
+        if (isCursorDragging) return;
+        const layout = isCursorActive() ? getCursorLayout() : null;
+        const measure = layout ? timeToMeasure(audioPlayer.currentTime) : null;
+        if (measure === null) {
+            hidePlaybackCursor();
+            return;
+        }
+        drawPlaybackCursor(layout, measure - renderedStartMeasure, !audioPlayer.paused);
+    }
+
+    function startCursorAnimation() {
+        cancelAnimationFrame(cursorAnimationFrame);
+        const step = () => {
+            updatePlaybackCursor();
+            if (!audioPlayer.paused) cursorAnimationFrame = requestAnimationFrame(step);
+        };
+        step();
+    }
+
+    // Closest line first, then the closest measure on it; x is mapped back through the note positions
+    function pointerToMeasurePosition(layout, event) {
+        const rect = scoreContainer.getBoundingClientRect();
+        const viewScale = rect.width / scoreContainer.offsetWidth || 1; // the mobile view is CSS-scaled
+        const { scale, left, top } = getLayoutOffset(layout);
+        const x = ((event.clientX - rect.left) / viewScale - scoreContainer.clientLeft + scoreContainer.scrollLeft - left) / scale;
+        const y = ((event.clientY - rect.top) / viewScale - scoreContainer.clientTop + scoreContainer.scrollTop - top) / scale;
+
+        let best = null;
+        let bestDistance = Infinity;
+        for (const measure of layout.measures) {
+            const dy = y < measure.top ? measure.top - y : y > measure.bottom ? y - measure.bottom : 0;
+            const dx = x < measure.left ? measure.left - x : x > measure.right ? x - measure.right : 0;
+            const distance = dy * 1000 + dx;
+            if (distance < bestDistance) {
+                best = measure;
+                bestDistance = distance;
+            }
+        }
+        if (!best) return null;
+
+        const { points } = best;
+        // Stay inside the chosen measure: with repeats its end isn't always the next measure's start
+        const lastPos = best.end - 1e-6;
+        if (x <= points[0].x) return points[0].pos;
+        for (let i = 0; i < points.length - 1; i++) {
+            const a = points[i];
+            const b = points[i + 1];
+            if (x <= b.x) return Math.min(b.x > a.x ? a.pos + (b.pos - a.pos) * (x - a.x) / (b.x - a.x) : a.pos, lastPos);
+        }
+        return lastPos;
+    }
+
+    function seekToMeasurePosition(pos) {
+        const measure = renderedStartMeasure + pos;
+        audioPlayer.currentTime = measurePositionToTime(measure);
+        updateCurrentMeasureDisplay(measure);
+        updatePlaybackCursor();
+    }
+
+    playbackCursor.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        isCursorDragging = true;
+        cursorDragPosition = null;
+        playbackCursor.setPointerCapture(e.pointerId);
+        playbackCursor.classList.add('is-dragging');
+    });
+    playbackCursor.addEventListener('pointermove', (e) => {
+        if (!isCursorDragging) return;
+        const layout = getCursorLayout();
+        const pos = layout ? pointerToMeasurePosition(layout, e) : null;
+        if (pos !== null) {
+            cursorDragPosition = pos;
+            drawPlaybackCursor(layout, pos, false);
+        }
+    });
+    function endCursorDrag(e) {
+        if (!isCursorDragging) return;
+        isCursorDragging = false;
+        playbackCursor.classList.remove('is-dragging');
+        if (e.type === 'pointerup' && cursorDragPosition !== null) {
+            seekToMeasurePosition(cursorDragPosition);
+        } else {
+            updatePlaybackCursor();
+        }
+    }
+    playbackCursor.addEventListener('pointerup', endCursorDrag);
+    playbackCursor.addEventListener('pointercancel', endCursorDrag);
+
+    scoreContainer.addEventListener('click', (e) => {
+        if (!isCursorActive() || e.target.closest('#playback-cursor')) return;
+        const layout = getCursorLayout();
+        const pos = layout ? pointerToMeasurePosition(layout, e) : null;
+        if (pos !== null) seekToMeasurePosition(pos);
+    });
+
+    audioPlayer.addEventListener('play', startCursorAnimation);
+    audioPlayer.addEventListener('pause', updatePlaybackCursor);
+    audioPlayer.addEventListener('seeked', updatePlaybackCursor);
 
     async function play() {
         if (!audioFileUrl && audioFileHandle) {
@@ -1725,12 +2209,11 @@
         
         const startMeasure = parseInt(startMeasureInput.value, 10);
         const endMeasure = parseInt(endMeasureInput.value, 10);
-        let beatsPerMeasure = originalTimeSignature ? originalTimeSignature.numerator : 4;
-        
+
         audioPlayer.playbackRate = targetBpm / originalBpm;
-        timePerBeat = 60 / originalBpm;
-        const startTime = (startMeasure - 1) * beatsPerMeasure * timePerBeat;
-        playbackEndTime = endMeasure * beatsPerMeasure * timePerBeat;
+        const range = getPlaybackRange(startMeasure, endMeasure);
+        const startTime = range.start;
+        playbackEndTime = range.end;
         
         if (audioPlayer.currentTime < startTime || audioPlayer.currentTime >= playbackEndTime) {
             audioPlayer.currentTime = startTime;
