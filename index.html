@@ -1444,7 +1444,7 @@
             });
             
             originalTimeSignature = osmd.sheet.SourceMeasures[0]?.ActiveTimeSignature;
-            measureTimeline = buildMeasureTimeline(osmd.sheet);
+            measureTimeline = buildMeasureTimeline(osmd.sheet, musicXmlFileContent);
 
             const firstMeasure = osmd.sheet.SourceMeasures[0];
             if(firstMeasure && firstMeasure.TempoInBPM) {
@@ -1731,7 +1731,8 @@
             return;
         }
 
-        audioPlayer.currentTime = measureToTime(startMeasure);
+        const endMeasure = parseInt(endMeasureInput.value, 10);
+        audioPlayer.currentTime = getPlaybackRange(startMeasure, endMeasure >= startMeasure ? endMeasure : startMeasure).start;
         updateCurrentMeasureDisplay(startMeasure);
     }
 
@@ -1748,20 +1749,139 @@
     }
 
     // --- Score Timeline ---
-    // Uses each measure's real length and tempo, so time-signature and tempo changes stay in sync with the audio.
-    function buildMeasureTimeline(sheet) {
+    // Steps are the measures in the order the audio plays them (repeats and jumps unrolled), timed with
+    // each measure's real length and tempo, so time-signature and tempo changes stay in sync with the audio.
+    function buildMeasureTimeline(sheet, xmlString) {
         const baseTempo = sheet.SourceMeasures[0]?.TempoInBPM || 120;
         let tempo = baseTempo;
-        let start = 0;
-        const entries = sheet.SourceMeasures.map(sourceMeasure => {
+        const durations = sheet.SourceMeasures.map(sourceMeasure => {
             if (sourceMeasure.TempoInBPM > 0) tempo = sourceMeasure.TempoInBPM;
             // Duration is in whole notes; tempo is in quarter notes per minute
-            const duration = sourceMeasure.Duration.RealValue * 4 * 60 / tempo;
-            const entry = { start, duration };
-            start += duration;
-            return entry;
+            return sourceMeasure.Duration.RealValue * 4 * 60 / tempo;
         });
-        return { baseTempo, entries };
+        let start = 0;
+        const steps = getPlaybackOrder(xmlString, durations.length).map(measure => {
+            const step = { measure, start, duration: durations[measure] };
+            start += step.duration;
+            return step;
+        });
+        return { baseTempo, measureCount: durations.length, steps };
+    }
+
+    function parseEndingNumbers(text) {
+        const numbers = [];
+        (text || '').split(/[,\s]+/).forEach(token => {
+            const [from, to] = token.split('-').map(n => parseInt(n, 10));
+            if (isNaN(from)) return;
+            for (let n = from; n <= (isNaN(to) ? from : to); n++) numbers.push(n);
+        });
+        return numbers;
+    }
+
+    // 0-based measure indices in the order the audio plays them. Follows repeats, 1st/2nd endings,
+    // D.C./D.S., Fine and To Coda the way MuseScore plays them by default (no repeats after a jump).
+    function getPlaybackOrder(xmlString, measureCount) {
+        const linearOrder = Array.from({ length: measureCount }, (_, i) => i);
+        const xmlDoc = xmlString ? new DOMParser().parseFromString(xmlString, 'text/xml') : null;
+        const parts = xmlDoc ? Array.from(xmlDoc.querySelectorAll('score-partwise > part')) : [];
+        if (!parts.length || parts[0].querySelectorAll(':scope > measure').length !== measureCount) return linearOrder;
+
+        const info = linearOrder.map(() => ({
+            forward: false, backward: 0, endingNumbers: null, endingStop: false,
+            segno: null, coda: null, toCoda: null, dalSegno: null, daCapo: false, fine: false
+        }));
+        parts.forEach(part => part.querySelectorAll(':scope > measure').forEach((measure, i) => {
+            const m = info[i];
+            if (!m) return;
+            measure.querySelectorAll('barline').forEach(barline => {
+                const direction = barline.querySelector('repeat')?.getAttribute('direction');
+                if (direction === 'forward') m.forward = true;
+                if (direction === 'backward') m.backward = parseInt(barline.querySelector('repeat').getAttribute('times'), 10) || 2;
+                const ending = barline.querySelector('ending');
+                if (ending?.getAttribute('type') === 'start') m.endingNumbers = parseEndingNumbers(ending.getAttribute('number'));
+                else if (ending) m.endingStop = true;
+            });
+            measure.querySelectorAll('sound').forEach(sound => {
+                if (sound.hasAttribute('segno')) m.segno = sound.getAttribute('segno');
+                if (sound.hasAttribute('coda')) m.coda = sound.getAttribute('coda');
+                if (sound.hasAttribute('tocoda')) m.toCoda = sound.getAttribute('tocoda');
+                if (sound.hasAttribute('dalsegno')) m.dalSegno = sound.getAttribute('dalsegno');
+                if (sound.getAttribute('dacapo') === 'yes') m.daCapo = true;
+                if (sound.hasAttribute('fine')) m.fine = true;
+            });
+        }));
+
+        // Ending (volta) blocks, grouped with the endings right after them
+        const endingBlocks = new Map();
+        const endingBlockEnds = new Set();
+        let group = null;
+        for (let i = 0; i < measureCount; i++) {
+            if (!info[i].endingNumbers) continue;
+            let end = i;
+            while (end < measureCount - 1 && !info[end].endingStop && !info[end + 1].endingNumbers) end++;
+            if (!group || group[group.length - 1].end !== i - 1) group = [];
+            const block = { end, numbers: info[i].endingNumbers, group };
+            group.push(block);
+            endingBlocks.set(i, block);
+            endingBlockEnds.add(end);
+            i = end;
+        }
+        // The last ending of a group also plays when no ending lists this pass (e.g. after a D.C.)
+        const playsEnding = (block, pass) => block.numbers.includes(pass)
+            || (block === block.group[block.group.length - 1] && !block.group.some(b => b.numbers.includes(pass)));
+        const findMarker = (key, name) => {
+            const named = info.findIndex(m => m[key] !== null && m[key] === name);
+            return named !== -1 ? named : info.findIndex(m => m[key] !== null);
+        };
+
+        const FINAL_PASS = Infinity;
+        const order = [];
+        const jumpsTaken = new Set();
+        let afterJump = false;
+        let repeatStart = 0;
+        let pass = 1;
+        let i = 0;
+        while (i < measureCount && order.length < measureCount * 20) {
+            const m = info[i];
+            if (m.forward && i !== repeatStart) {
+                repeatStart = i;
+                pass = afterJump ? FINAL_PASS : 1;
+            }
+            const block = endingBlocks.get(i);
+            if (block && !playsEnding(block, pass)) {
+                i = block.end + 1;
+                continue;
+            }
+            order.push(i);
+            if (m.backward && pass < m.backward) {
+                pass++;
+                i = repeatStart;
+                continue;
+            }
+            if (m.backward || endingBlockEnds.has(i)) {
+                repeatStart = i + 1;
+                pass = afterJump ? FINAL_PASS : 1;
+            }
+            if (afterJump && m.fine) break;
+            const codaTarget = afterJump && m.toCoda !== null ? findMarker('coda', m.toCoda) : -1;
+            if (codaTarget !== -1) {
+                i = codaTarget;
+                continue;
+            }
+            if ((m.daCapo || m.dalSegno !== null) && !jumpsTaken.has(i)) {
+                const target = m.daCapo ? 0 : findMarker('segno', m.dalSegno);
+                if (target !== -1) {
+                    jumpsTaken.add(i);
+                    afterJump = true;
+                    repeatStart = target;
+                    pass = FINAL_PASS;
+                    i = target;
+                    continue;
+                }
+            }
+            i++;
+        }
+        return order.length ? order : linearOrder;
     }
 
     // The original BPM input rescales the whole score tempo map
@@ -1770,30 +1890,80 @@
         return originalBpm > 0 ? measureTimeline.baseTempo / originalBpm : 1;
     }
 
-    // Audio time (seconds) at a 1-based, possibly fractional, measure position
-    function measureToTime(measure) {
-        if (!measureTimeline) {
-            const originalBpm = parseFloat(originalBpmInput.value);
-            const beatsPerMeasure = originalTimeSignature ? originalTimeSignature.numerator : 4;
-            return (measure - 1) * beatsPerMeasure * (60 / originalBpm);
+    // Used before the score info is loaded: assumes a constant tempo and time signature, no repeats
+    function linearMeasureToTime(measure) {
+        const originalBpm = parseFloat(originalBpmInput.value);
+        const beatsPerMeasure = originalTimeSignature ? originalTimeSignature.numerator : 4;
+        return (measure - 1) * beatsPerMeasure * (60 / originalBpm);
+    }
+
+    function stepTime(step, fraction) {
+        return (step.start + step.duration * fraction) * getTimelineScale();
+    }
+
+    // Every pass through a 0-based measure; one that never plays (e.g. an unused ending) uses the next one that does
+    function stepsForMeasure(index) {
+        const { steps, measureCount } = measureTimeline;
+        for (let i = Math.max(index, 0); i < measureCount; i++) {
+            const found = steps.filter(step => step.measure === i);
+            if (found.length) return found;
         }
-        const { entries } = measureTimeline;
-        const index = Math.min(Math.max(Math.floor(measure) - 1, 0), entries.length - 1);
-        const fraction = Math.min(Math.max(measure - 1 - index, 0), 1);
-        const entry = entries[index];
-        return (entry.start + entry.duration * fraction) * getTimelineScale();
+        return [steps[steps.length - 1]];
+    }
+
+    // Audio time span for playing measures start..end (1-based): from the first pass through the start
+    // measure whose run stays inside start..end until it reaches the end measure, to the last pass
+    // through the end measure before the performance leaves start..end
+    function getPlaybackRange(startMeasure, endMeasure) {
+        if (!measureTimeline) {
+            return { start: linearMeasureToTime(startMeasure), end: linearMeasureToTime(endMeasure + 1) };
+        }
+        const { steps } = measureTimeline;
+        const startSteps = stepsForMeasure(startMeasure - 1);
+        const endSteps = stepsForMeasure(endMeasure - 1);
+        const startIndex = startSteps[0].measure;
+        const endIndex = Math.max(endSteps[0].measure, startIndex);
+        for (const startStep of startSteps) {
+            let lastEndStep = null;
+            for (let k = steps.indexOf(startStep); k < steps.length; k++) {
+                if (steps[k].measure < startIndex || steps[k].measure > endIndex) break;
+                if (steps[k].measure === endIndex) lastEndStep = steps[k];
+            }
+            if (lastEndStep) return { start: stepTime(startStep, 0), end: stepTime(lastEndStep, 1) };
+        }
+        // The performance never goes straight from start to end: take the first pass of each
+        const startStep = startSteps[0];
+        const endStep = endSteps.find(step => step.start >= startStep.start) || steps[steps.length - 1];
+        return { start: stepTime(startStep, 0), end: stepTime(endStep, 1) };
+    }
+
+    // Audio time at a 1-based, fractional measure position. A measure that plays more than once resolves
+    // to the pass nearest the current time, preferring passes inside the selected playback range.
+    function measurePositionToTime(measure) {
+        if (!measureTimeline) return linearMeasureToTime(measure);
+        const index = Math.floor(measure) - 1;
+        const fraction = measure - 1 - index;
+        const times = stepsForMeasure(index).map(step => stepTime(step, fraction));
+        const startMeasure = parseInt(startMeasureInput.value, 10);
+        const endMeasure = parseInt(endMeasureInput.value, 10);
+        let candidates = times;
+        if (startMeasure >= 1 && endMeasure >= startMeasure) {
+            const range = getPlaybackRange(startMeasure, endMeasure);
+            const inRange = times.filter(time => time >= range.start && time < range.end);
+            if (inRange.length) candidates = inRange;
+        }
+        const now = audioPlayer.currentTime;
+        return candidates.reduce((best, time) => Math.abs(time - now) < Math.abs(best - now) ? time : best);
     }
 
     // 1-based, fractional measure position at an audio time; null when the score info isn't loaded
     function timeToMeasure(seconds) {
         if (!measureTimeline) return null;
-        const { entries } = measureTimeline;
+        const { steps } = measureTimeline;
         const scoreTime = seconds / getTimelineScale() + 1e-6; // tolerate float rounding exactly at a barline
-        let index = entries.findIndex(entry => scoreTime < entry.start + entry.duration);
-        if (index === -1) index = entries.length - 1;
-        const entry = entries[index];
-        const fraction = entry.duration > 0 ? Math.min(Math.max((scoreTime - entry.start) / entry.duration, 0), 1) : 0;
-        return index + 1 + fraction;
+        const step = steps.find(s => scoreTime < s.start + s.duration) || steps[steps.length - 1];
+        const fraction = step.duration > 0 ? Math.min(Math.max((scoreTime - step.start) / step.duration, 0), 1) : 0;
+        return step.measure + 1 + fraction;
     }
 
     // --- Playback Cursor ---
@@ -1956,18 +2126,20 @@
         if (!best) return null;
 
         const { points } = best;
+        // Stay inside the chosen measure: with repeats its end isn't always the next measure's start
+        const lastPos = best.end - 1e-6;
         if (x <= points[0].x) return points[0].pos;
         for (let i = 0; i < points.length - 1; i++) {
             const a = points[i];
             const b = points[i + 1];
-            if (x <= b.x) return b.x > a.x ? a.pos + (b.pos - a.pos) * (x - a.x) / (b.x - a.x) : a.pos;
+            if (x <= b.x) return Math.min(b.x > a.x ? a.pos + (b.pos - a.pos) * (x - a.x) / (b.x - a.x) : a.pos, lastPos);
         }
-        return points[points.length - 1].pos;
+        return lastPos;
     }
 
     function seekToMeasurePosition(pos) {
         const measure = renderedStartMeasure + pos;
-        audioPlayer.currentTime = measureToTime(measure);
+        audioPlayer.currentTime = measurePositionToTime(measure);
         updateCurrentMeasureDisplay(measure);
         updatePlaybackCursor();
     }
@@ -2039,8 +2211,9 @@
         const endMeasure = parseInt(endMeasureInput.value, 10);
 
         audioPlayer.playbackRate = targetBpm / originalBpm;
-        const startTime = measureToTime(startMeasure);
-        playbackEndTime = measureToTime(endMeasure + 1);
+        const range = getPlaybackRange(startMeasure, endMeasure);
+        const startTime = range.start;
+        playbackEndTime = range.end;
         
         if (audioPlayer.currentTime < startTime || audioPlayer.currentTime >= playbackEndTime) {
             audioPlayer.currentTime = startTime;
